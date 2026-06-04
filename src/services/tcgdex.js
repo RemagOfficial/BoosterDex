@@ -5,7 +5,47 @@ import { getSetConfig, inferRarity } from './sets.js';
 const sdk = new TCGdex('en');
 
 const CACHE_TTL = 30 * 24 * 60 * 60 * 1000; // 30 days - WotC sets never change
-const CACHE_VERSION = 'v27'; // bump when card shape changes to invalidate old caches
+const CACHE_VERSION = 'v29'; // bump when card shape changes to invalidate old caches
+
+function toCanonicalVariantLocalId(localId) {
+  const text = String(localId ?? '');
+  // Collapse letter-suffix print variants like 28a/28b or RC25a/RC25b.
+  // Intentionally only collapse lowercase suffix variants so uppercase set-specific
+  // IDs (for example Celebrations Classic Collection 2A/4A/...) remain distinct.
+  return /^([a-z]*\d+)[a-z]+$/.test(text) ? text.replace(/[a-z]+$/, '') : text;
+}
+
+function dedupeLetterSuffixCards(cards) {
+  const byKey = new Map();
+
+  const pickPreferred = (a, b) => {
+    const aLocalId = String(a?.localId ?? '');
+    const bLocalId = String(b?.localId ?? '');
+    const aIsSuffix = /^([a-z]*\d+)[a-z]+$/.test(aLocalId);
+    const bIsSuffix = /^([a-z]*\d+)[a-z]+$/.test(bLocalId);
+
+    // Prefer canonical card numbers (e.g. keep 28, drop 28a/28b).
+    if (aIsSuffix !== bIsSuffix) return aIsSuffix ? b : a;
+    if (Boolean(a?.image) !== Boolean(b?.image)) return a?.image ? a : b;
+    if (Boolean(a?.holo) !== Boolean(b?.holo)) return a?.holo ? a : b;
+    return a;
+  };
+
+  cards.forEach((card, index) => {
+    const localId = String(card?.localId ?? '');
+    const key = `${String(card?.setId ?? '')}|${toCanonicalVariantLocalId(localId)}`;
+    const existing = byKey.get(key);
+    if (!existing) {
+      byKey.set(key, { card, index });
+      return;
+    }
+    byKey.set(key, { card: pickPreferred(existing.card, card), index: existing.index });
+  });
+
+  return [...byKey.values()]
+    .sort((a, b) => a.index - b.index)
+    .map((entry) => entry.card);
+}
 
 function isPokemonExName(name) {
   if (!name) return false;
@@ -59,9 +99,7 @@ function dedupeExVariants(cards) {
   const byKey = new Map();
 
   const toCanonicalLocalId = (localId) => {
-    const text = String(localId ?? '');
-    // API variant noise can produce letter-suffix duplicates for the same card number.
-    return /^\d+[a-z]+$/i.test(text) ? text.replace(/[a-z]+$/i, '') : text;
+    return toCanonicalVariantLocalId(localId);
   };
 
   const makeKey = (card) => {
@@ -79,8 +117,8 @@ function dedupeExVariants(cards) {
   const pickPreferred = (a, b) => {
     const aLocalId = String(a.localId ?? '');
     const bLocalId = String(b.localId ?? '');
-    const aIsSuffix = /^\d+[a-z]+$/i.test(aLocalId);
-    const bIsSuffix = /^\d+[a-z]+$/i.test(bLocalId);
+    const aIsSuffix = /^\d+[a-z]+$/.test(aLocalId);
+    const bIsSuffix = /^\d+[a-z]+$/.test(bLocalId);
 
     if (aIsSuffix !== bIsSuffix) return aIsSuffix ? b : a;
     if (Boolean(a.image) !== Boolean(b.image)) return a.image ? a : b;
@@ -149,6 +187,8 @@ function isPremiumHitRarity(rarity) {
  */
 function normalizeRarity(r) {
   if (!r) return null;
+  if (r === 'None')             return 'Common';
+  if (r === 'Shiny rare')       return 'Rare Shiny';
   if (r === 'Rare Holo')        return 'Rare';
   if (r === 'Rare Holo LV.X')  return 'Rare LV.X';
   if (r === 'Mega Hyper Rare') return 'Secret Rare';
@@ -221,16 +261,8 @@ export async function loadSetCards(setId) {
   const setBasePath = rawCards.find((c) => c.image)?.image.replace(/\/[^/]+$/, '') ?? null;
   const buildUrl = (n) => setBasePath ? `${setBasePath}/${n}` : null;
 
-  // Dedup a/b letter-suffix cards (same art, different e-reader data).
-  const seenBase = new Set();
-  const deduped = rawCards.filter((card) => {
-    const isLetterSuffix = /^\d+[a-z]$/i.test(card.localId);
-    if (!isLetterSuffix) return true;
-    const base = card.localId.replace(/[a-z]+$/i, '');
-    if (seenBase.has(base)) return false;
-    seenBase.add(base);
-    return true;
-  });
+  // Dedup a/b letter-suffix cards (same art, different print-variant suffixes).
+  const deduped = dedupeLetterSuffixCards(rawCards);
 
   // Step 2: batch-fetch per-card data (20 concurrent, each result cached individually)
   const BATCH = 20;
@@ -293,11 +325,11 @@ export async function loadSetCards(setId) {
     if (rarity !== 'Secret Rare' && (v || vmax || vstar)) rarity = 'Rare ex';
     if (isBreakName(card.name)) rarity = 'Rare BREAK';
     const baseRarityBeforeSecretFallback = rarity;
-    // Cards at/above a set-specific secret start are secret rares.
-    // Defaults to official total + 1 when no override is provided.
+    // Cards above the official set size are secret rares.
+    // This follows the physical numbering convention (e.g. 101/100).
     const numericId = parseInt(card.localId, 10);
-    const secretStart = setConfig?.secretStart ?? (setConfig?.totalCards ? setConfig.totalCards + 1 : null);
-    if (!isNaN(numericId) && secretStart && numericId >= secretStart) {
+    const officialTotal = Number(setConfig?.totalCards ?? 0);
+    if (!isNaN(numericId) && officialTotal > 0 && numericId > officialTotal) {
       rarity = 'Secret Rare';
     }
     // Some sets include basic energy variants indexed above the official count.
@@ -422,16 +454,18 @@ export async function loadSetCards(setId) {
           setId,                   // treat as belonging to the main set
         }));
 
+        const dedupedMergeRaw = dedupeLetterSuffixCards(mergeRaw);
+
         // Batch-fetch variants for merge cards
         const mergeVariantMap = new Map();
-        for (let i = 0; i < mergeRaw.length; i += BATCH) {
-          const slice   = mergeRaw.slice(i, i + BATCH);
+        for (let i = 0; i < dedupedMergeRaw.length; i += BATCH) {
+          const slice   = dedupedMergeRaw.slice(i, i + BATCH);
           const results = await Promise.all(slice.map((c) => fetchCardVariants(c.id)));
           slice.forEach((c, j) => mergeVariantMap.set(c.id, results[j]));
         }
 
         // Assign rarity, holo — same rules as main pipeline
-        const mergeCards = mergeRaw.map((card) => {
+        const mergeCards = dedupedMergeRaw.map((card) => {
           const vd = mergeVariantMap.get(card.id);
           const megaEx = isMegaExName(card.name);
           const gx = isGxName(card.name);
@@ -450,8 +484,8 @@ export async function loadSetCards(setId) {
           if (isBreakName(card.name)) rarity = 'Rare BREAK';
           const baseRarityBeforeSecretFallback = rarity;
           const numericId = parseInt(card.localId, 10);
-          const secretStart = setConfig?.secretStart ?? (setConfig?.totalCards ? setConfig.totalCards + 1 : null);
-          if (!isNaN(numericId) && secretStart && numericId >= secretStart) {
+          const officialTotal = Number(setConfig?.totalCards ?? 0);
+          if (!isNaN(numericId) && officialTotal > 0 && numericId > officialTotal) {
             rarity = 'Secret Rare';
           }
           if (rarity === 'Secret Rare' && isEnergyCardName(card.name) && baseRarityBeforeSecretFallback === 'Common') {

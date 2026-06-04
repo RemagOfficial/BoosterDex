@@ -2,11 +2,13 @@ import { useState, useMemo, useEffect, useRef } from 'react';
 import { SETS } from '../services/sets.js';
 import './SetSelector.css';
 
-const BOOSTERDEX_SET_ID = '__boosterdex__';
+const BOOSTERDEX_MAIN_SET_ID = '__boosterdex_main__';
+const BOOSTERDEX_SPECIAL_SET_ID = '__boosterdex_special__';
 
 // Derive unique sorted series and years from SETS
-const ALL_SERIES = [...new Set(SETS.map((s) => s.series))];
-const ALL_YEARS  = [...new Set(SETS.map((s) => s.year))].sort();
+function isSpecialExpansion(set) {
+  return set?.expansionGroup === 'special';
+}
 
 function toggle(set, value) {
   const next = new Set(set);
@@ -31,11 +33,16 @@ export default function SetSelector({
   onSelect,
   setSymbols = {},
   economyMode = false,
-  loadedSetCount = 0,
-  loadedCardCount = 0,
-  boosterDexUnlocked = false,
-  boosterDexProgress = 0,
-  boosterDexTotal = 0,
+  boosterDexMainLoadedSetCount = 0,
+  boosterDexMainLoadedCardCount = 0,
+  boosterDexMainUnlocked = false,
+  boosterDexMainProgress = 0,
+  boosterDexMainTotal = 0,
+  boosterDexSpecialLoadedSetCount = 0,
+  boosterDexSpecialLoadedCardCount = 0,
+  boosterDexSpecialUnlocked = false,
+  boosterDexSpecialProgress = 0,
+  boosterDexSpecialTotal = 0,
 }) {
   const [showFilter, setShowFilter] = useState(false);
   const [selSeries,  setSelSeries]  = useState(() => new Set(loadStoredArray('pkmon_set_selector_series')));
@@ -46,7 +53,22 @@ export default function SetSelector({
   const [search, setSearch] = useState(() => {
     try { return localStorage.getItem('pkmon_set_selector_search') ?? ''; } catch { return ''; }
   });
+  const [expansionView, setExpansionView] = useState(() => {
+    try {
+      const raw = localStorage.getItem('pkmon_set_selector_expansion_view');
+      return raw === 'special' ? 'special' : 'main';
+    } catch {
+      return 'main';
+    }
+  });
   const popupRef = useRef(null);
+
+  const scopedSets = useMemo(
+    () => SETS.filter((set) => (expansionView === 'special' ? isSpecialExpansion(set) : !isSpecialExpansion(set))),
+    [expansionView],
+  );
+  const allSeries = useMemo(() => [...new Set(scopedSets.map((s) => s.series))], [scopedSets]);
+  const allYears = useMemo(() => [...new Set(scopedSets.map((s) => s.year))].sort(), [scopedSets]);
 
   // Close popup on outside click
   useEffect(() => {
@@ -73,22 +95,39 @@ export default function SetSelector({
   useEffect(() => {
     try { localStorage.setItem('pkmon_set_selector_search', search); } catch { /* ignore */ }
   }, [search]);
+  useEffect(() => {
+    try { localStorage.setItem('pkmon_set_selector_expansion_view', expansionView); } catch { /* ignore */ }
+  }, [expansionView]);
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
-    const megaPack = {
-      id: BOOSTERDEX_SET_ID,
-      name: 'BoosterDex Mega Pack',
+    const mainMegaPack = {
+      id: BOOSTERDEX_MAIN_SET_ID,
+      name: 'BoosterDex Mega Pack (Main)',
       series: 'BoosterDex',
       year: economyMode ? 'Economy' : 'Sandbox',
-      totalCards: loadedCardCount,
+      totalCards: boosterDexMainLoadedCardCount,
       symbol: '◆',
       accentColor: '#f59e0b',
       special: true,
-      disabled: loadedSetCount === 0 || (economyMode && boosterDexUnlocked !== true),
+      disabled: boosterDexMainLoadedSetCount === 0 || (economyMode && boosterDexMainUnlocked !== true),
     };
 
-    const regularSets = SETS.filter((s) => {
+    const specialMegaPack = {
+      id: BOOSTERDEX_SPECIAL_SET_ID,
+      name: 'BoosterDex Mega Pack (Special)',
+      series: 'BoosterDex',
+      year: economyMode ? 'Economy' : 'Sandbox',
+      totalCards: boosterDexSpecialLoadedCardCount,
+      symbol: '◆',
+      accentColor: '#ef4444',
+      special: true,
+      disabled: boosterDexSpecialLoadedSetCount === 0 || (economyMode && boosterDexSpecialUnlocked !== true),
+    };
+
+    const megaPack = expansionView === 'special' ? specialMegaPack : mainMegaPack;
+
+    const regularSets = scopedSets.filter((s) => {
       if (selSeries.size > 0 && !selSeries.has(s.series)) return false;
       if (selYears.size  > 0 && !selYears.has(s.year))   return false;
       if (q) {
@@ -98,7 +137,7 @@ export default function SetSelector({
       return true;
     });
 
-    const megaHay = `${megaPack.name} ${megaPack.series} ${megaPack.year} mixed all loaded sets`;
+    const megaHay = `${megaPack.name} ${megaPack.series} ${megaPack.year} mixed loaded sets`;
     const megaMatchesSearch = !q || megaHay.toLowerCase().includes(q);
 
     if (boosterDexOnly) {
@@ -106,7 +145,7 @@ export default function SetSelector({
     }
 
     return megaMatchesSearch ? [megaPack, ...regularSets] : regularSets;
-  }, [selSeries, selYears, search, economyMode, boosterDexOnly, loadedSetCount, loadedCardCount, boosterDexUnlocked]);
+  }, [selSeries, selYears, search, economyMode, boosterDexOnly, scopedSets, expansionView, boosterDexMainLoadedSetCount, boosterDexMainLoadedCardCount, boosterDexMainUnlocked, boosterDexSpecialLoadedSetCount, boosterDexSpecialLoadedCardCount, boosterDexSpecialUnlocked]);
 
   const activeCount = selSeries.size + selYears.size + (boosterDexOnly ? 1 : 0);
   const clearAll = () => {
@@ -140,6 +179,28 @@ export default function SetSelector({
               onChange={e => setSearch(e.target.value)}
             />
           </div>
+          <div className="ss-expansion-toggle" role="group" aria-label="Expansion type">
+            <button
+              className={`ss-expansion-toggle__btn${expansionView === 'main' ? ' ss-expansion-toggle__btn--active' : ''}`}
+              onClick={() => {
+                setExpansionView('main');
+                setSelSeries(new Set());
+                setSelYears(new Set());
+              }}
+            >
+              Main Series
+            </button>
+            <button
+              className={`ss-expansion-toggle__btn${expansionView === 'special' ? ' ss-expansion-toggle__btn--active' : ''}`}
+              onClick={() => {
+                setExpansionView('special');
+                setSelSeries(new Set());
+                setSelYears(new Set());
+              }}
+            >
+              Special Expansions
+            </button>
+          </div>
           {activeCount > 0 && (
             <div className="ss-chips">
               {[...selSeries].map((s) => (
@@ -165,7 +226,7 @@ export default function SetSelector({
             <div className="ss-popup__section">
               <span className="ss-popup__label">Series</span>
               <div className="ss-popup__options">
-                {ALL_SERIES.map((s) => (
+                {allSeries.map((s) => (
                   <button
                     key={s}
                     className={`ss-option${selSeries.has(s) ? ' ss-option--on' : ''}`}
@@ -180,7 +241,7 @@ export default function SetSelector({
             <div className="ss-popup__section">
               <span className="ss-popup__label">Year</span>
               <div className="ss-popup__options ss-popup__options--years">
-                {ALL_YEARS.map((y) => (
+                {allYears.map((y) => (
                   <button
                     key={y}
                     className={`ss-option${selYears.has(y) ? ' ss-option--on' : ''}`}
@@ -251,15 +312,15 @@ export default function SetSelector({
             </div>
             <div className="set-card__footer">
               <span className="set-card__count">
-                {set.id === BOOSTERDEX_SET_ID
+                {set.id === BOOSTERDEX_MAIN_SET_ID || set.id === BOOSTERDEX_SPECIAL_SET_ID
                   ? economyMode
-                    ? boosterDexUnlocked
-                      ? loadedSetCount > 0
-                        ? `${loadedSetCount} available set${loadedSetCount === 1 ? '' : 's'}`
+                    ? (set.id === BOOSTERDEX_SPECIAL_SET_ID ? boosterDexSpecialUnlocked : boosterDexMainUnlocked)
+                      ? (set.id === BOOSTERDEX_SPECIAL_SET_ID ? boosterDexSpecialLoadedSetCount : boosterDexMainLoadedSetCount) > 0
+                        ? `${set.id === BOOSTERDEX_SPECIAL_SET_ID ? boosterDexSpecialLoadedSetCount : boosterDexMainLoadedSetCount} available set${(set.id === BOOSTERDEX_SPECIAL_SET_ID ? boosterDexSpecialLoadedSetCount : boosterDexMainLoadedSetCount) === 1 ? '' : 's'}`
                         : 'No cached sets yet'
-                      : `Locked: ${boosterDexProgress}/${boosterDexTotal} packs opened`
-                    : loadedSetCount > 0
-                      ? `${loadedSetCount} available set${loadedSetCount === 1 ? '' : 's'}`
+                      : `Locked: ${set.id === BOOSTERDEX_SPECIAL_SET_ID ? boosterDexSpecialProgress : boosterDexMainProgress}/${set.id === BOOSTERDEX_SPECIAL_SET_ID ? boosterDexSpecialTotal : boosterDexMainTotal} packs opened`
+                    : (set.id === BOOSTERDEX_SPECIAL_SET_ID ? boosterDexSpecialLoadedSetCount : boosterDexMainLoadedSetCount) > 0
+                      ? `${set.id === BOOSTERDEX_SPECIAL_SET_ID ? boosterDexSpecialLoadedSetCount : boosterDexMainLoadedSetCount} available set${(set.id === BOOSTERDEX_SPECIAL_SET_ID ? boosterDexSpecialLoadedSetCount : boosterDexMainLoadedSetCount) === 1 ? '' : 's'}`
                       : 'No cached sets yet'
                   : `${set.totalCards} cards`}
               </span>

@@ -8,31 +8,29 @@
  */
 
 import { getGradeMultiplier } from './grading.js';
+import { SETS } from './sets.js';
 
 // Sets in release order — matches the order in sets.js
-export const SET_ORDER = [
-  'base1', 'base2', 'base3', 'base4', 'base5',
-  'gym1',  'gym2',  'neo1',  'neo2',  'neo3',  'neo4',
-  'lc',    'ecard1','ecard2','ecard3',
-  'ex1',   'ex2',   'ex3',   'ex4',   'ex5',   'ex6',
-  'ex7',   'ex8',   'ex9',   'ex10',  'ex11',
-  'ex12',  'ex13',  'ex14',  'ex15',  'ex16',
-  'dp1',
-  'dp2', 'dp3', 'dp4', 'dp5', 'dp6', 'dp7',
-  'pl1', 'pl2', 'pl3', 'pl4',
-  'hgss1', 'hgss2', 'hgss3', 'hgss4',
-  'col1',
-  'bw1', 'bw2', 'bw3', 'bw4', 'bw5', 'bw6', 'bw7', 'bw8', 'bw9', 'bw10', 'bw11',
-  'xy1', 'xy2', 'xy3', 'xy4', 'xy5', 'xy6', 'xy7', 'xy8', 'xy9', 'xy10', 'xy11', 'xy12', 'sm1', 'sm2', 'sm3', 'sm4', 'sm5', 'sm6', 'sm7', 'sm8', 'sm9', 'sm10', 'sm11', 'sm12', 'swsh1', 'swsh2', 'swsh3', 'swsh4', 'swsh5', 'swsh6', 'swsh7', 'swsh8', 'swsh9', 'swsh10', 'swsh11', 'swsh12', 'sv01', 'sv02', 'sv03', 'sv04', 'sv05', 'sv06', 'sv07', 'sv08', 'sv09', 'sv10', 'me01', 'me02', 'me03',
-];
+export const SET_ORDER = SETS.map((set) => set.id);
+
+function isSpecialExpansion(set) {
+  return set?.expansionGroup === 'special';
+}
 
 // Build the price table once at module load
 export const PACK_PRICES = (() => {
   const prices = {};
-  let price = 100;
-  for (const id of SET_ORDER) {
-    prices[id] = Math.round(price / 10) * 10;
-    price *= 1.25;
+  // Main-series price steps start at 100 and increase by x1.25.
+  // Special expansions are priced at the next main-series step so they don't
+  // shift every following main set's price upward.
+  let nextMainStep = 100;
+  for (const set of SETS) {
+    if (isSpecialExpansion(set)) {
+      prices[set.id] = Math.round(nextMainStep / 10) * 10;
+      continue;
+    }
+    prices[set.id] = Math.round(nextMainStep / 10) * 10;
+    nextMainStep *= 1.25;
   }
   return prices;
 })();

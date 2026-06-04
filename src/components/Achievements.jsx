@@ -4,8 +4,10 @@ import { SETS } from '../services/sets.js';
 import './Achievements.css';
 import './SetSelector.css';
 
-const ALL_SERIES = [...new Set(SETS.map((s) => s.series))];
-const ALL_YEARS  = [...new Set(SETS.map((s) => s.year))].sort();
+function isSpecialExpansion(set) {
+  return set?.expansionGroup === 'special';
+}
+
 function toggleSet(set, value) {
   const next = new Set(set);
   if (next.has(value)) next.delete(value); else next.add(value);
@@ -57,12 +59,14 @@ export default function Achievements({ collection, allCards, economyMode = false
   const [selSeries, setSelSeries] = useState(() => new Set(loadStoredArray('pkmon_ach_series')));
   const [selYears,  setSelYears]  = useState(() => new Set(loadStoredArray('pkmon_ach_years')));
   const [search, setSearch] = useState(() => loadStoredValue('pkmon_ach_search', ''));
+  const [expansionView, setExpansionView] = useState(() => loadStoredValue('pkmon_ach_expansion_view', 'main'));
   const filterPopupRef = useRef(null);
 
   useEffect(() => { saveStoredValue('pkmon_ach_active_set', activeSet); }, [activeSet]);
   useEffect(() => { saveStoredArray('pkmon_ach_series', [...selSeries]); }, [selSeries]);
   useEffect(() => { saveStoredArray('pkmon_ach_years', [...selYears]); }, [selYears]);
   useEffect(() => { saveStoredValue('pkmon_ach_search', search); }, [search]);
+  useEffect(() => { saveStoredValue('pkmon_ach_expansion_view', expansionView); }, [expansionView]);
 
   useEffect(() => {
     if (!showFilter) return;
@@ -86,10 +90,18 @@ export default function Achievements({ collection, allCards, economyMode = false
   const activeFilterCount = selSeries.size + selYears.size;
   const clearAllFilters = () => { setSelSeries(new Set()); setSelYears(new Set()); };
   const setMeta = Object.fromEntries(SETS.map((s) => [s.id, s]));
+  const scopedSets = useMemo(
+    () => SETS.filter((set) => (expansionView === 'special' ? isSpecialExpansion(set) : !isSpecialExpansion(set))),
+    [expansionView],
+  );
+  const seriesOptions = useMemo(() => [...new Set(scopedSets.map((s) => s.series))], [scopedSets]);
+  const yearOptions = useMemo(() => [...new Set(scopedSets.map((s) => s.year))].sort(), [scopedSets]);
   const visibleAchSets = ACHIEVEMENT_SETS.filter((set) => {
     const meta = setMeta[set.tcgdexId];
     const series = meta?.series ?? set.series ?? '';
     const year = meta?.year ?? set.year ?? '';
+    if (meta && expansionView === 'special' && !isSpecialExpansion(meta)) return false;
+    if (meta && expansionView === 'main' && isSpecialExpansion(meta)) return false;
     if (selSeries.size > 0 && !selSeries.has(series)) return false;
     if (selYears.size  > 0 && !selYears.has(year))   return false;
     if (search.trim()) {
@@ -125,6 +137,28 @@ export default function Achievements({ collection, allCards, economyMode = false
                 style={{ flex: 1 }}
               />
             </div>
+            <div className="ss-expansion-toggle" role="group" aria-label="Expansion type">
+              <button
+                className={`ss-expansion-toggle__btn${expansionView === 'main' ? ' ss-expansion-toggle__btn--active' : ''}`}
+                onClick={() => {
+                  setExpansionView('main');
+                  setSelSeries(new Set());
+                  setSelYears(new Set());
+                }}
+              >
+                Main Series
+              </button>
+              <button
+                className={`ss-expansion-toggle__btn${expansionView === 'special' ? ' ss-expansion-toggle__btn--active' : ''}`}
+                onClick={() => {
+                  setExpansionView('special');
+                  setSelSeries(new Set());
+                  setSelYears(new Set());
+                }}
+              >
+                Special Expansions
+              </button>
+            </div>
             {activeFilterCount > 0 && (
               <div className="ss-chips">
                 {[...selSeries].map((s) => (
@@ -141,7 +175,7 @@ export default function Achievements({ collection, allCards, economyMode = false
                 <div className="ss-popup__section">
                   <span className="ss-popup__label">Series</span>
                   <div className="ss-popup__options">
-                    {ALL_SERIES.map((s) => (
+                    {seriesOptions.map((s) => (
                       <button key={s} className={`ss-option${selSeries.has(s) ? ' ss-option--on' : ''}`} onClick={() => setSelSeries(toggleSet(selSeries, s))}>{s}</button>
                     ))}
                   </div>
@@ -150,7 +184,7 @@ export default function Achievements({ collection, allCards, economyMode = false
                 <div className="ss-popup__section">
                   <span className="ss-popup__label">Year</span>
                   <div className="ss-popup__options ss-popup__options--years">
-                    {ALL_YEARS.map((y) => (
+                    {yearOptions.map((y) => (
                       <button key={y} className={`ss-option${selYears.has(y) ? ' ss-option--on' : ''}`} onClick={() => setSelYears(toggleSet(selYears, y))}>{y}</button>
                     ))}
                   </div>

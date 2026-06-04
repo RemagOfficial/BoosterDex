@@ -3,6 +3,14 @@ import './Settings.css';
 
 const CHANGELOG = [
   {
+    version: '1.14.0',
+    date: '2026-06-04',
+    entries: [
+      'Mega Evolution expansion added — Chaos Rising (me04)',
+      'All special expansions have been added across XY, Sun & Moon, Sword & Shield, Scarlet & Violet, and Mega Evolution',
+    ],
+  },
+  {
     version: '1.13.1',
     date: '2026-05-22',
     entries: [
@@ -35,7 +43,7 @@ const CHANGELOG = [
       'Full Sun & Moon series added — Sun & Moon through Cosmic Eclipse (sm1–sm12)',
       'Full Sword & Shield series added — Sword & Shield through Silver Tempest (swsh1–swsh12)',
       'Full Scarlet & Violet series added — Scarlet & Violet through Destined Rivals (sv01–sv10)',
-      'Full Mega Evolution series added — Mega Evolution through Perfect Order (me01–me03)',
+      'Full Mega Evolution series added — Mega Evolution through Chaos Rising (me01–me04)',
     ],
   },
   {

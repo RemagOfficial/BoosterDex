@@ -6,8 +6,9 @@ import { getFavourites } from '../services/favourites.js';
 import './Collection.css';
 import './SetSelector.css';
 
-const ALL_SERIES = [...new Set(SETS.map((s) => s.series))];
-const ALL_YEARS = [...new Set(SETS.map((s) => s.year))].sort();
+function isSpecialExpansion(set) {
+  return set?.expansionGroup === 'special';
+}
 
 function toggleSet(set, value) {
   const next = new Set(set);
@@ -90,6 +91,38 @@ const SET_SUBSETS = {
     fallbackTotal: 25,
     className: 'coll-subset-card--radiant',
   },
+  g1: {
+    key: 'rc',
+    label: 'Radiant Collection',
+    description: 'Subset cards with RC-numbered local IDs',
+    prefix: 'RC',
+    fallbackTotal: 32,
+    className: 'coll-subset-card--radiant',
+  },
+  sm115: {
+    key: 'sv',
+    label: 'Shiny Vault',
+    description: 'Subset cards with SV-numbered local IDs',
+    prefix: 'SV',
+    fallbackTotal: 94,
+    className: 'coll-subset-card--radiant',
+  },
+  'swsh4.5': {
+    key: 'sv',
+    label: 'Shiny Vault',
+    description: 'Subset cards with SV-numbered local IDs',
+    prefix: 'SV',
+    fallbackTotal: 122,
+    className: 'coll-subset-card--radiant',
+  },
+  cel25: {
+    key: 'cc',
+    label: 'Classic Collection',
+    description: 'Subset cards with A-marked local IDs',
+    matcher: (localId) => /A/i.test(String(localId ?? '')),
+    fallbackTotal: 25,
+    className: 'coll-subset-card--radiant',
+  },
   swsh9: {
     key: 'tg',
     label: 'Trainer Gallery',
@@ -122,6 +155,14 @@ const SET_SUBSETS = {
     fallbackTotal: 30,
     className: 'coll-subset-card--trainer-gallery',
   },
+  'swsh12.5': {
+    key: 'gg',
+    label: 'Galarian Gallery',
+    description: 'Subset cards with GG-numbered local IDs',
+    prefix: 'GG',
+    fallbackTotal: 70,
+    className: 'coll-subset-card--trainer-gallery',
+  },
 };
 
 function getSubsetConfig(setId) {
@@ -130,13 +171,16 @@ function getSubsetConfig(setId) {
 
 function isSubsetCard(card, subsetConfig) {
   if (!subsetConfig) return false;
+  if (typeof subsetConfig.matcher === 'function') {
+    return subsetConfig.matcher(card?.localId);
+  }
   return new RegExp(`^${subsetConfig.prefix}`, 'i').test(String(card?.localId ?? ''));
 }
 
 function compareLocalIds(a, b) {
   const parse = (value) => {
     const text = String(value ?? '');
-    if (/^(RC|TG)/i.test(text)) {
+    if (/^(RC|TG|SV|GG)/i.test(text)) {
       const n = parseInt(text.replace(/^[A-Z]+/i, ''), 10);
       return { group: 1, num: Number.isNaN(n) ? 0 : n, text };
     }
@@ -209,6 +253,7 @@ export default function Collection({
   const [selSeries, setSelSeries] = useState(() => new Set(loadStoredArray('pkmon_collection_series')));
   const [selYears, setSelYears] = useState(() => new Set(loadStoredArray('pkmon_collection_years')));
   const [setSearch, setSetSearch] = useState(() => loadStoredValue('pkmon_collection_search', ''));
+  const [expansionView, setExpansionView] = useState(() => loadStoredValue('pkmon_collection_expansion_view', 'main'));
 
   const [favouriteIds, setFavouriteIds] = useState(() => getFavourites());
 
@@ -232,6 +277,14 @@ export default function Collection({
   useEffect(() => { saveStoredArray('pkmon_collection_series', [...selSeries]); }, [selSeries]);
   useEffect(() => { saveStoredArray('pkmon_collection_years', [...selYears]); }, [selYears]);
   useEffect(() => { saveStoredValue('pkmon_collection_search', setSearch); }, [setSearch]);
+  useEffect(() => { saveStoredValue('pkmon_collection_expansion_view', expansionView); }, [expansionView]);
+
+  const scopedSets = useMemo(
+    () => SETS.filter((set) => (expansionView === 'special' ? isSpecialExpansion(set) : !isSpecialExpansion(set))),
+    [expansionView],
+  );
+  const seriesOptions = useMemo(() => [...new Set(scopedSets.map((s) => s.series))], [scopedSets]);
+  const yearOptions = useMemo(() => [...new Set(scopedSets.map((s) => s.year))].sort(), [scopedSets]);
 
   useEffect(() => {
     if (!showFilter) return;
@@ -409,7 +462,7 @@ export default function Collection({
   }, [collection]);
 
   const visibleSets = useMemo(() => {
-    return SETS.filter((set) => {
+    return scopedSets.filter((set) => {
       if (selSeries.size > 0 && !selSeries.has(set.series)) return false;
       if (selYears.size > 0 && !selYears.has(set.year)) return false;
       if (setSearch.trim()) {
@@ -427,7 +480,7 @@ export default function Collection({
         : ((loadedSets[set.id]?.filter((c) => !c.reverseHolo && isOfficialNumberedCard(c, set)).length) ?? set.totalCards);
       return !(owned > 0 && owned >= total);
     });
-  }, [selSeries, selYears, setSearch, hideComplete, ownedOfficialBySet, loadedSets, collection]);
+  }, [scopedSets, selSeries, selYears, setSearch, hideComplete, loadedSets, collection]);
 
   if (!activeSetId) {
     return (
@@ -454,6 +507,28 @@ export default function Collection({
                         onChange={(e) => setSetSearch(e.target.value)}
                       />
                     </div>
+                      <div className="ss-expansion-toggle" role="group" aria-label="Expansion type">
+                        <button
+                          className={`ss-expansion-toggle__btn${expansionView === 'main' ? ' ss-expansion-toggle__btn--active' : ''}`}
+                          onClick={() => {
+                            setExpansionView('main');
+                            setSelSeries(new Set());
+                            setSelYears(new Set());
+                          }}
+                        >
+                          Main Series
+                        </button>
+                        <button
+                          className={`ss-expansion-toggle__btn${expansionView === 'special' ? ' ss-expansion-toggle__btn--active' : ''}`}
+                          onClick={() => {
+                            setExpansionView('special');
+                            setSelSeries(new Set());
+                            setSelYears(new Set());
+                          }}
+                        >
+                          Special Expansions
+                        </button>
+                      </div>
                     {activeFilterCount > 0 && (
                       <div className="ss-chips">
                         {[...selSeries].map((s) => (
@@ -473,7 +548,7 @@ export default function Collection({
                     <div className="ss-popup__section">
                       <span className="ss-popup__label">Series</span>
                       <div className="ss-popup__options">
-                        {ALL_SERIES.map((s) => (
+                        {seriesOptions.map((s) => (
                           <button key={s} className={`ss-option${selSeries.has(s) ? ' ss-option--on' : ''}`} onClick={() => setSelSeries(toggleSet(selSeries, s))}>{s}</button>
                         ))}
                       </div>
@@ -482,7 +557,7 @@ export default function Collection({
                     <div className="ss-popup__section">
                       <span className="ss-popup__label">Year</span>
                       <div className="ss-popup__options ss-popup__options--years">
-                        {ALL_YEARS.map((y) => (
+                        {yearOptions.map((y) => (
                           <button key={y} className={`ss-option${selYears.has(y) ? ' ss-option--on' : ''}`} onClick={() => setSelYears(toggleSet(selYears, y))}>{y}</button>
                         ))}
                       </div>
@@ -631,7 +706,7 @@ export default function Collection({
             }}
           >
             <span className="coll-subset-card__title">Main Set</span>
-            <span className="coll-subset-card__desc">Standard Legendary Treasures cards</span>
+            <span className="coll-subset-card__desc">Standard {setConfig?.name} cards</span>
             <span className="coll-subset-card__count">{mainOwned} / {mainTotal}</span>
           </button>
 

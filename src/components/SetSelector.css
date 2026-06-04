@@ -25,6 +25,40 @@
   gap: 8px;
   width: 100%;
 }
+
+.ss-expansion-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px;
+  border-radius: 999px;
+  border: 1px solid rgba(148, 163, 184, 0.2);
+  background: rgba(15, 23, 42, 0.85);
+  width: fit-content;
+}
+
+.ss-expansion-toggle__btn {
+  padding: 5px 12px;
+  border-radius: 999px;
+  border: 1px solid transparent;
+  background: transparent;
+  color: #94a3b8;
+  font-size: 0.76rem;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  cursor: pointer;
+  transition: color 0.15s, background 0.15s, border-color 0.15s;
+}
+
+.ss-expansion-toggle__btn:hover {
+  color: #cbd5e1;
+}
+
+.ss-expansion-toggle__btn--active {
+  background: rgba(99, 102, 241, 0.22);
+  border-color: rgba(99, 102, 241, 0.45);
+  color: #c7d2fe;
+}
 /* ═══════════════════════════════════════════════════════════════
    Set Selector
 ═══════════════════════════════════════════════════════════════ */
