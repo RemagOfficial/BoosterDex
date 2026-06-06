@@ -81,3 +81,8 @@ export function getSellPrice(card, setId) {
   // sums to at least the pack price (verified across every set in SET_ORDER).
   return Math.max(1, Math.ceil(packPrice * factor));
 }
+
+  /** Number of packs in a booster box. */
+  export const BOOSTER_BOX_SIZE = 36;
+  /** A box costs this many times the single-pack price (better deal than buying singles). */
+  export const BOOSTER_BOX_MULTIPLIER = 25;

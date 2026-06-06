@@ -12,6 +12,7 @@ const RARITY_ORDER = ['Common', 'Uncommon', 'Rare', 'Rare ex', 'Ultra Rare', 'Ra
 
 export default function DevPanel({
   onClose,
+  coins = 0,
   onFireToast,
   onFireSetComplete,
   forcedPack,
@@ -22,6 +23,7 @@ export default function DevPanel({
   onClearAchievements,
   onClearCaches,
   onAwardFreePacks,
+  onSetCoins,
   onReopenTutorial,
   collection,
   onSetCollectionCardGrade,
@@ -34,6 +36,7 @@ export default function DevPanel({
   const [gradeCardId, setGradeCardId] = useState('');
   const [gradeValue, setGradeValue] = useState(10);
   const [gradeStatus, setGradeStatus] = useState('');
+  const [coinDraft, setCoinDraft] = useState(coins);
 
   // Sort and filter cards for the picker
   const filteredCards = useMemo(() => {
@@ -73,6 +76,10 @@ export default function DevPanel({
       setGradeCardId(gradeCandidates[0].id);
     }
   }, [gradeCandidates, gradeCardId]);
+
+  useEffect(() => {
+    setCoinDraft(coins);
+  }, [coins]);
 
   const selectedGradeCard = useMemo(
     () => (collection ?? []).find((c) => c.id === gradeCardId) ?? null,
@@ -258,6 +265,28 @@ export default function DevPanel({
                 🎁 Award {n} free pack{n !== 1 ? 's' : ''}
               </button>
             ))}
+            <div className="dev-divider" />
+            <p className="dev-label">Coins</p>
+            <p className="dev-hint">Set the exact balance or apply quick adjustments.</p>
+            <input
+              className="dev-input"
+              type="number"
+              min="0"
+              step="1"
+              value={coinDraft}
+              onChange={(e) => setCoinDraft(e.target.value === '' ? '' : Number(e.target.value))}
+            />
+            <div className="dev-toast-grid">
+              <button className="dev-btn dev-btn--primary" onClick={() => onSetCoins?.(Number(coinDraft) || 0)}>
+                Set Balance
+              </button>
+              <button className="dev-btn" onClick={() => onSetCoins?.(Math.max(0, coins + 1000))}>
+                +1,000
+              </button>
+              <button className="dev-btn" onClick={() => onSetCoins?.(Math.max(0, coins - 1000))}>
+                -1,000
+              </button>
+            </div>
             <button className="dev-btn dev-btn--wide" onClick={onMaxPity}>
               ✦ Fill Pity Meter (→ 10/10)
             </button>

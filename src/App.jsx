@@ -10,7 +10,7 @@ import { useEconomy } from './hooks/useEconomy.js';
 import { loadSetCards, loadAllSetSymbols } from './services/tcgdex.js';
 import { cacheClearAll } from './services/cache.js';
 import { SETS } from './services/sets.js';
-import { PACK_PRICES, getSellPrice, STARTING_BALANCE } from './services/economy.js';
+import { PACK_PRICES, getSellPrice, STARTING_BALANCE, BOOSTER_BOX_SIZE, BOOSTER_BOX_MULTIPLIER } from './services/economy.js';
 import { ACHIEVEMENT_SETS, computeProgress, getAchievementReward } from './services/achievements.js';
 import { resetStats, recordSetCompletion } from './services/stats.js';
 import Settings from './components/Settings.jsx';
@@ -297,7 +297,7 @@ export default function App() {
   }, [economyMode, isBoosterDexSelected, isBoosterDexMainSelected, isBoosterDexSpecialSelected, boosterDexMainUnlocked, boosterDexSpecialUnlocked]);
 
   // ── Economy (coins) ──────────────────────────────────────────────────────
-  const { coins, spend, earn, reset: resetCoins } = useEconomy();
+  const { coins, spend, earn, setBalance: setCoins, reset: resetCoins } = useEconomy();
   const [showCoinFlip, setShowCoinFlip] = useState(false);
 
   // Free pack tokens per set: { [setId]: count }
@@ -331,6 +331,14 @@ export default function App() {
   }, []);
 
   // All set IDs the player already has at least one card from (for random pack awards)
+    const handleBuyBox = useCallback(() => {
+      if (!selectedSetId || isBoosterDexSelected) return;
+      const price = (PACK_PRICES[selectedSetId] ?? PACK_PRICES['base1']) * BOOSTER_BOX_MULTIPLIER;
+      spend(price);
+      for (let i = 0; i < BOOSTER_BOX_SIZE; i++) awardFreePack(selectedSetId);
+    }, [selectedSetId, isBoosterDexSelected, spend, awardFreePack]);
+
+    // All set IDs the player already has at least one card from (for random pack awards)
   const setsWithCards = useMemo(
     () => [...new Set(collection.map((c) => c.setId).filter(Boolean))],
     [collection],
@@ -833,6 +841,7 @@ export default function App() {
                 onPackUsed={() => setForcedPack(null)}
                 pityCount={economyMode ? (pityCounters[selectedSetId] ?? 0) : 0}
                 onPityUpdate={handlePityUpdate}
+                  onBuyBox={economyMode && !isBoosterDexSelected ? handleBuyBox : undefined}
               />
             )}
           </>
@@ -905,6 +914,7 @@ export default function App() {
     {showDevPanel && (
       <DevPanel
         onClose={() => setShowDevPanel(false)}
+        coins={coins}
         onFireToast={devFireToast}
         onFireSetComplete={devFireSetComplete}
         forcedPack={forcedPack}
@@ -915,6 +925,7 @@ export default function App() {
         onClearAchievements={devClearAchievements}
         onClearCaches={devClearCaches}
         onAwardFreePacks={devAwardFreePacks}
+        onSetCoins={setCoins}
         onReopenTutorial={handleReopenTutorial}
         collection={collection}
         onSetCollectionCardGrade={devSetCardGrade}

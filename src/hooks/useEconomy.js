@@ -27,7 +27,15 @@ export function useEconomy() {
     setCoins((prev) => { const n = prev + amount; save(n); return n; });
   }, []);
 
+  const setBalance = useCallback((amount) => {
+    setCoins(() => {
+      const n = Math.max(0, Number.isFinite(amount) ? Math.floor(amount) : 0);
+      save(n);
+      return n;
+    });
+  }, []);
+
   const reset = useCallback(() => { save(STARTING_BALANCE); setCoins(STARTING_BALANCE); }, []);
 
-  return { coins, spend, earn, reset };
+  return { coins, spend, earn, setBalance, reset };
 }

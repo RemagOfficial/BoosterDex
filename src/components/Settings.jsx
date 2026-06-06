@@ -3,6 +3,14 @@ import './Settings.css';
 
 const CHANGELOG = [
   {
+    version: '1.15.0',
+    date: '2026-06-06',
+    entries: [
+      'Economy mode free packs now lean harder toward cards you do not already own',
+      'Booster boxes added for economy mode — buy 36 packs at a better rate than singles and open them whenever you want',
+    ],
+  },
+  {
     version: '1.14.1',
     date: '2026-06-06',
     entries: [

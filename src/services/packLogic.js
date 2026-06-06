@@ -13,6 +13,26 @@ function pickRandom(pool, count) {
   return shuffled.slice(0, count);
 }
 
+/**
+ * Weighted pick without replacement.
+ * Cards already in ownedIds get 80% weight so free packs favour new cards.
+ * Falls back to uniform random when ownedIds is null/empty.
+ */
+function pickWeighted(pool, count, ownedIds) {
+  if (!ownedIds || ownedIds.size === 0 || pool.length === 0) return pickRandom(pool, count);
+  const items = pool.map((card) => ({ card, weight: ownedIds.has(card.id) ? 0.8 : 1.0 }));
+  const result = [];
+  for (let i = 0; i < count && items.length > 0; i++) {
+    const total = items.reduce((s, w) => s + w.weight, 0);
+    let r = Math.random() * total;
+    let idx = items.length - 1;
+    for (let j = 0; j < items.length; j++) { r -= items[j].weight; if (r <= 0) { idx = j; break; } }
+    result.push(items[idx].card);
+    items.splice(idx, 1);
+  }
+  return result;
+}
+
 const PREMIUM_COOLDOWN_PACKS = 3;
 const PREMIUM_COOLDOWN_BASE_MULTIPLIER = 0.75;
 const PREMIUM_COOLDOWN_STEP = 0.15;
@@ -74,7 +94,7 @@ function rollWithMultiplier(probability, multiplier) {
   return Math.random() < (probability * multiplier);
 }
 
-export function openPack(allCards, setId = null) {
+export function openPack(allCards, setId = null, ownedIds = null) {
   const packSetId = getPackSetId(allCards, setId);
   const cooldownState = getCooldownState(packSetId, !hasPlainRares(allCards));
   const cooldownWasActive = cooldownState?.packsLeft > 0;
@@ -94,27 +114,29 @@ export function openPack(allCards, setId = null) {
 
   // Sets with reverse holo cards (EX era+) get a dedicated reverse holo slot,
   // replacing one common slot so the pack stays at 10 cards total.
-  const hasRH     = reverseHolos.length > 0;
-  let rhSlot      = hasRH ? pickRandom(reverseHolos, 1) : [];
+  const hasRH = reverseHolos.length > 0;
+  // pick: weighted for free packs (20% less likely to pull already-owned cards)
+  const pick  = (pool, n) => pickWeighted(pool, n, ownedIds);
+  let rhSlot  = hasRH ? pick(reverseHolos, 1) : [];
 
   // Radiant cards are reverse-slot hits and use shiny-tier odds.
   if (radiantCards.length > 0 && Math.random() < 1 / 90) {
-    rhSlot = pickRandom(radiantCards, 1);
+    rhSlot = pick(radiantCards, 1);
   }
 
-  const uncommonCards = pickRandom(uncommons, 3);
-  const commonCards   = pickRandom(commons, hasRH ? 5 : 6);
+  const uncommonCards = pick(uncommons, 3);
+  const commonCards   = pick(commons, hasRH ? 5 : 6);
 
   // Shiny Pokémon: ~1-in-90 chance, rarer than Secret Rare, replaces the rare slot
   if (shinyCards.length > 0 && rollWithMultiplier(1 / 90, cooldownMultiplier)) {
     notePremiumHit(cooldownState, cooldownWasActive);
-    return [...commonCards, ...uncommonCards, ...rhSlot, ...pickRandom(shinyCards, 1)];
+    return [...commonCards, ...uncommonCards, ...rhSlot, ...pick(shinyCards, 1)];
   }
 
   // Secret rare: ~1-in-45 chance, replaces the rare slot
   if (secretRares.length > 0 && rollWithMultiplier(1 / 45, cooldownMultiplier)) {
     notePremiumHit(cooldownState, cooldownWasActive);
-    const secretCard = pickRandom(secretRares, 1);
+    const secretCard = pick(secretRares, 1);
     return [...commonCards, ...uncommonCards, ...rhSlot, ...secretCard];
   }
 
@@ -122,7 +144,7 @@ export function openPack(allCards, setId = null) {
   // (rarer than EX, less rare than Secret Rare)
   if (ultraRares.length > 0 && rollWithMultiplier(1 / 18, cooldownMultiplier)) {
     notePremiumHit(cooldownState, cooldownWasActive);
-    const ultraCard = pickRandom(ultraRares, 1);
+    const ultraCard = pick(ultraRares, 1);
     return [...commonCards, ...uncommonCards, ...rhSlot, ...ultraCard];
   }
 
@@ -130,22 +152,22 @@ export function openPack(allCards, setId = null) {
   // Less rare than EX, more rare than holo rare.
   if (breakCards.length > 0 && rollWithMultiplier(1 / 5, cooldownMultiplier)) {
     notePremiumHit(cooldownState, cooldownWasActive);
-    const breakCard = pickRandom(breakCards, 1);
+    const breakCard = pick(breakCards, 1);
     return [...commonCards, ...uncommonCards, ...rhSlot, ...breakCard];
   }
 
   // EX Pokemon: ~1-in-9 chance, replaces the rare slot
   if (exCards.length > 0 && rollWithMultiplier(1 / 9, cooldownMultiplier)) {
     notePremiumHit(cooldownState, cooldownWasActive);
-    const exCard = pickRandom(exCards, 1);
+    const exCard = pick(exCards, 1);
     return [...commonCards, ...uncommonCards, ...rhSlot, ...exCard];
   }
 
   // ~1-in-3 chance of a holo rare, otherwise a non-holo rare
   // If no plain rares exist (e.g. Gym Heroes), fall back to the holo pool
   const rareCard = hasPlainRares(allCards)
-    ? pickRandom(Math.random() < 1 / 3 ? holoRares : rares, 1)
-    : pickRandom(holoRares.length ? holoRares : rares, 1);
+    ? pick(Math.random() < 1 / 3 ? holoRares : rares, 1)
+    : pick(holoRares.length ? holoRares : rares, 1);
 
   // Order: commons at the bottom, uncommons in the middle, [reverse holo], rare on top
   return [...commonCards, ...uncommonCards, ...rhSlot, ...rareCard];
@@ -157,7 +179,7 @@ export function openPack(allCards, setId = null) {
  * probabilities so they can still appear (and because holos are now the floor
  * rather than one option among rares, effective pull rates feel higher).
  */
-export function openPityPack(allCards, setId = null) {
+export function openPityPack(allCards, setId = null, ownedIds = null) {
   const packSetId = getPackSetId(allCards, setId);
   const cooldownState = getCooldownState(packSetId, !hasPlainRares(allCards));
   const cooldownWasActive = cooldownState?.packsLeft > 0;
@@ -175,47 +197,48 @@ export function openPityPack(allCards, setId = null) {
   const shinyCards   = allCards.filter((c) => c.rarity === 'Rare Shiny');
   const reverseHolos = allCards.filter((c) => c.reverseHolo === true);
 
-  const hasRH     = reverseHolos.length > 0;
-  let rhSlot      = hasRH ? pickRandom(reverseHolos, 1) : [];
+  const hasRH = reverseHolos.length > 0;
+  const pick  = (pool, n) => pickWeighted(pool, n, ownedIds);
+  let rhSlot  = hasRH ? pick(reverseHolos, 1) : [];
   if (radiantCards.length > 0 && Math.random() < 1 / 90) {
-    rhSlot = pickRandom(radiantCards, 1);
+    rhSlot = pick(radiantCards, 1);
   }
-  const uncommonCards = pickRandom(uncommons, 3);
-  const commonCards   = pickRandom(commons, hasRH ? 5 : 6);
+  const uncommonCards = pick(uncommons, 3);
+  const commonCards   = pick(commons, hasRH ? 5 : 6);
 
   // Shiny Pokémon: same 1-in-90 chance
   if (shinyCards.length > 0 && rollWithMultiplier(1 / 90, cooldownMultiplier)) {
     notePremiumHit(cooldownState, cooldownWasActive);
-    return [...commonCards, ...uncommonCards, ...rhSlot, ...pickRandom(shinyCards, 1)];
+    return [...commonCards, ...uncommonCards, ...rhSlot, ...pick(shinyCards, 1)];
   }
 
   // Secret Rare: same 1-in-45 chance
   if (secretRares.length > 0 && rollWithMultiplier(1 / 45, cooldownMultiplier)) {
     notePremiumHit(cooldownState, cooldownWasActive);
-    return [...commonCards, ...uncommonCards, ...rhSlot, ...pickRandom(secretRares, 1)];
+    return [...commonCards, ...uncommonCards, ...rhSlot, ...pick(secretRares, 1)];
   }
 
   // Ultra Rare: same 1-in-18 chance
   if (ultraRares.length > 0 && rollWithMultiplier(1 / 18, cooldownMultiplier)) {
     notePremiumHit(cooldownState, cooldownWasActive);
-    return [...commonCards, ...uncommonCards, ...rhSlot, ...pickRandom(ultraRares, 1)];
+    return [...commonCards, ...uncommonCards, ...rhSlot, ...pick(ultraRares, 1)];
   }
 
   // BREAK cards: same 1-in-5 chance in pity packs.
   if (breakCards.length > 0 && rollWithMultiplier(1 / 5, cooldownMultiplier)) {
     notePremiumHit(cooldownState, cooldownWasActive);
-    return [...commonCards, ...uncommonCards, ...rhSlot, ...pickRandom(breakCards, 1)];
+    return [...commonCards, ...uncommonCards, ...rhSlot, ...pick(breakCards, 1)];
   }
 
   // EX Pokémon: same 1-in-9 chance
   if (exCards.length > 0 && rollWithMultiplier(1 / 9, cooldownMultiplier)) {
     notePremiumHit(cooldownState, cooldownWasActive);
-    return [...commonCards, ...uncommonCards, ...rhSlot, ...pickRandom(exCards, 1)];
+    return [...commonCards, ...uncommonCards, ...rhSlot, ...pick(exCards, 1)];
   }
 
   // Guaranteed holo (fall back to non-holo rares only if the set has none)
   const pool = hasPlainRares(allCards)
     ? holoRares
     : (holoRares.length > 0 ? holoRares : rares);
-  return [...commonCards, ...uncommonCards, ...rhSlot, ...pickRandom(pool, 1)];
+  return [...commonCards, ...uncommonCards, ...rhSlot, ...pick(pool, 1)];
 }

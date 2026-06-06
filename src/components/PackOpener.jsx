@@ -1,6 +1,7 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { openPack, openPityPack } from '../services/packLogic.js';
 import { PITY_THRESHOLD } from '../services/pity.js';
+import { BOOSTER_BOX_SIZE, BOOSTER_BOX_MULTIPLIER } from '../services/economy.js';
 import { recordPackOpened } from '../services/stats.js';
 import { getCardImageUrl } from '../services/tcgdex.js';
 import CardModal from './CardModal.jsx';
@@ -49,6 +50,7 @@ export default function PackOpener({
   onBuyPack, onSellCard, getCardSellPrice,
   canCoinFlip = false, onCoinFlip,
   freePacks = 0, onUseFreePack,
+    onBuyBox,
   // Dev mode
   forcedPack = null, onPackUsed,
   // Pity system (economy mode)
@@ -143,7 +145,8 @@ export default function PackOpener({
     clearTimers();
     preOpenCollectionRef.current = new Set(collectionRef.current.map((c) => c.id));
     const isPityPack = economyMode && !forcedPack && pityCount >= PITY_THRESHOLD;
-    const drawn = forcedPack ?? (isPityPack ? openPityPack(cards, setId) : openPack(cards, setId));
+      const ownedIds = (free && economyMode) ? preOpenCollectionRef.current : null;
+      const drawn = forcedPack ?? (isPityPack ? openPityPack(cards, setId, ownedIds) : openPack(cards, setId, ownedIds));
     if (forcedPack) onPackUsed?.();
     // Update pity counter: hit = holo or any premium rarity in the drawn pack
     if (economyMode && !forcedPack) {
@@ -287,7 +290,21 @@ export default function PackOpener({
             <button className="btn-open" onClick={handleOpenPack}>
               Open Pack
             </button>
-          )}
+            )}
+
+            {/* Booster Box — economy only, not shown for BoosterDex packs */}
+            {economyMode && onBuyBox && (
+              <button
+                className="btn-buy-box"
+                onClick={onBuyBox}
+                disabled={coins < packPrice * BOOSTER_BOX_MULTIPLIER}
+              >
+                📦 Buy Booster Box
+                <span className="btn-buy-box__detail">
+                  {BOOSTER_BOX_SIZE} packs · 🪙 {(packPrice * BOOSTER_BOX_MULTIPLIER).toLocaleString()}
+                </span>
+              </button>
+            )}
 
           {onChangeSet && (
             <button className="btn-change-set" onClick={onChangeSet}>
