@@ -3,6 +3,17 @@ import './Settings.css';
 
 const CHANGELOG = [
   {
+    version: '1.14.1',
+    date: '2026-06-06',
+    entries: [
+      'Fixed: achievement completion and stats now persist correctly between sessions — progress no longer resets to zero on page reload',
+      'Pack graphic is now clickable to open a pack, in addition to the Open Pack button',
+      'Fixed: gyroscope tilt no longer flips the card when the phone reaches the rotation boundary',
+      'Card tilt now starts flat by default on mobile instead of pre-tilted',
+      'Touch drag tilt sensitivity increased for better feel on smaller screens',
+    ],
+  },
+  {
     version: '1.14.0',
     date: '2026-06-04',
     entries: [

@@ -122,12 +122,6 @@ export default function App() {
   // Tracks whether we've already triggered the auto-load on mount
   const didInitialLoad = useRef(false);
 
-  // All cards from every loaded set combined — fed to Achievements
-  const allLoadedCards = useMemo(
-    () => Object.values(loadedSets).flat(),
-    [loadedSets],
-  );
-
   const cachedSetCardsById = useMemo(
     () => readCachedSetCardsById(),
     [loadedSets],
@@ -277,6 +271,17 @@ export default function App() {
   const sandboxCol = useCollection('pokemon_collection');
   const economyCol = useCollection('pkmon_eco_collection');
   const { collection, addCards, sellCard, gradeCard, devSetCardGrade, resetCollection } = economyMode ? economyCol : sandboxCol;
+
+  // All cards from every loaded set combined — fed to Achievements.
+  // We also include collection cards for sets that haven't been loaded yet so
+  // that achievement progress is correct across sessions without requiring every
+  // set to be fetched from the API on startup.
+  const allLoadedCards = useMemo(() => {
+    const loaded = Object.values(loadedSets).flat();
+    const loadedSetIds = new Set(Object.keys(loadedSets));
+    const extra = collection.filter((c) => c.setId && !loadedSetIds.has(c.setId));
+    return [...loaded, ...extra];
+  }, [loadedSets, collection]);
 
   const handleModeChange = useCallback((newMode) => {
     setMode(newMode);

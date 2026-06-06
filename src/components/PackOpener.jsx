@@ -14,9 +14,15 @@ function CardBack() {
 }
 
 // ── Pack graphic ──────────────────────────────────────────────────────────────
-function PackGraphic({ state, setName }) {
+function PackGraphic({ state, setName, onClick }) {
   return (
-    <div className={`pack-graphic pack-graphic--${state}`}>
+    <div
+      className={`pack-graphic pack-graphic--${state}`}
+      onClick={onClick}
+      onKeyDown={onClick ? (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onClick(); } } : undefined}
+      role={onClick ? 'button' : undefined}
+      tabIndex={onClick ? 0 : undefined}
+    >
       <div className="pack-graphic__inner">
         <div className="pack-graphic__foil" />
         <div className="pack-graphic__header"><span>{setName ? setName.toUpperCase() : 'BASE SET'}</span></div>
@@ -224,7 +230,13 @@ export default function PackOpener({
       {phase === 'idle' && (
         <div className="pack-opener__idle">
           <h2 className="pack-opener__subtitle">{setName} Booster Pack</h2>
-          <PackGraphic state="idle" setName={setName} />
+          <PackGraphic
+            state="idle"
+            setName={setName}
+            onClick={economyMode
+              ? (freePacks > 0 || coins >= packPrice ? () => handleOpenPack(freePacks > 0) : undefined)
+              : handleOpenPack}
+          />
 
           {economyMode ? (
             <>

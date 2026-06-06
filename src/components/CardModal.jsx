@@ -86,10 +86,13 @@ export default function CardModal({ card, onClose, onFavouriteChange, onGradeCar
     const handleOrientation = (e) => {
       if (e.gamma === null) return; // no real data
       gyroActiveRef.current = true;
-      // gamma: left/right tilt (-90°..90°) → rotateY
-      // beta: forward/back tilt; phone held upright ≈ 90° → centre there
-      const ry = clamp((e.gamma ?? 0) * 0.8, -TILT_MAX, TILT_MAX);
-      const rx = clamp(-((e.beta ?? 90) - 90) * 0.5, -TILT_MAX, TILT_MAX);
+      // Clamp beta to [0, 180] BEFORE computing to prevent the sudden ±180° wrap-around
+      // that causes the card to flip instead of tilt smoothly.
+      // Centre at 75° — the natural phone-holding angle — so the card sits flat at rest.
+      const beta = clamp(e.beta ?? 75, 0, 180);
+      const rx = clamp(-((beta - 75) * 0.4), -TILT_MAX, TILT_MAX);
+      // Reduce gamma sensitivity slightly so side-tilts feel proportional.
+      const ry = clamp((e.gamma ?? 0) * 0.6, -TILT_MAX, TILT_MAX);
       applyTilt(rx, ry);
     };
 
@@ -184,7 +187,9 @@ export default function CardModal({ card, onClose, onFavouriteChange, onGradeCar
     if (!t) return;
     const x = t.clientX / (window.innerWidth  || 1);
     const y = t.clientY / (window.innerHeight || 1);
-    applyTilt((0.5 - y) * TILT_MAX, (x - 0.5) * TILT_MAX);
+    // Use 2.5× multiplier so a natural short finger drag reaches full tilt on
+    // the smaller screen real-estate of a phone.
+    applyTilt((0.5 - y) * TILT_MAX * 2.5, (x - 0.5) * TILT_MAX * 2.5);
   };
 
   return (
