@@ -310,9 +310,10 @@ export const ACHIEVEMENT_SETS = [
     name: 'Gym Heroes',
     year: '2000',
     achievements: [
-      { id: 'gym1-common',   title: 'Gym Rookie',    description: 'Collect all Common cards',    icon: '○', rarity: 'Common',    fallbackTotal: 44,  filter: (c) => c.filter((x) => x.rarity === 'Common') },
-      { id: 'gym1-uncommon', title: 'Badge Seeker',  description: 'Collect all Uncommon cards',  icon: '◇', rarity: 'Uncommon',  fallbackTotal: 54,  filter: (c) => c.filter((x) => x.rarity === 'Uncommon') },
-      { id: 'gym1-holo',     title: 'Gym Leader',    description: 'Collect all Rare Holo cards', icon: '✦', rarity: 'Rare Holo', fallbackTotal: 34,  filter: (c) => c.filter((x) => x.holo === true) },
+      { id: 'gym1-common',   title: 'Gym Rookie',    description: 'Collect all Common cards',    icon: '○', rarity: 'Common',    fallbackTotal: 48,  filter: (c) => c.filter((x) => x.rarity === 'Common') },
+      { id: 'gym1-uncommon', title: 'Badge Seeker',  description: 'Collect all Uncommon cards',  icon: '◇', rarity: 'Uncommon',  fallbackTotal: 42,  filter: (c) => c.filter((x) => x.rarity === 'Uncommon') },
+      { id: 'gym1-rare',     title: 'Gym Leader',    description: 'Collect all Rare cards',      icon: '★', rarity: 'Rare',      fallbackTotal: 23,  filter: (c) => c.filter((x) => x.rarity === 'Rare' && !x.holo) },
+      { id: 'gym1-holo',     title: 'Gym Leader Holo', description: 'Collect all Rare Holo cards', icon: '✦', rarity: 'Rare Holo', fallbackTotal: 19,  filter: (c) => c.filter((x) => x.holo === true) },
       { id: 'gym1-full',     title: 'Gym Champion',  description: 'Collect every card in the Gym Heroes set', icon: '◆', rarity: null, fallbackTotal: 132, filter: (c) => c },
     ],
   },

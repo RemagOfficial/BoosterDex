@@ -406,6 +406,7 @@ export default function App() {
     catch { return new Set(); }
   });
   const [achToasts, setAchToasts] = useState([]);
+  const prevAchievementCompleteRef = useRef(new Set());
 
   const dismissAchToast = useCallback((id) => {
     setAchToasts((prev) => prev.filter((t) => t.id !== id));
@@ -414,15 +415,23 @@ export default function App() {
   useEffect(() => {
     if (!allLoadedCards.length) return;
     const progress = computeProgress(allLoadedCards, collection);
+    const currentCompleteIds = new Set();
     const newClaims = [];
+
     for (const achSet of ACHIEVEMENT_SETS) {
       for (const ach of achSet.achievements) {
         const prog = progress.get(ach.id);
-        if (prog?.complete && !claimedAchievements.has(ach.id)) {
+        if (prog?.complete) {
+          currentCompleteIds.add(ach.id);
+        }
+        const wasComplete = prevAchievementCompleteRef.current.has(ach.id);
+        if (prog?.complete && !wasComplete && !claimedAchievements.has(ach.id)) {
           newClaims.push({ ach, setName: achSet.name });
         }
       }
     }
+
+    prevAchievementCompleteRef.current = currentCompleteIds;
     if (newClaims.length === 0) return;
 
     // Award packs in economy mode (fall back to base1 if no sets with cards yet)

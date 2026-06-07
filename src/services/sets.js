@@ -123,12 +123,13 @@ export const SETS = [
     symbol: '⊙',
     accentColor: '#f59e0b',
     rarityRanges: {
-      // tcgdex labels cards 1-34 as Rare Holo; no separate Rare section
+      // tcgdex labels cards 1-34 as Rare Holo; 1-19 are holo, 20-34 are non-holo rares
+      // Trainer rares at 97-104, trainer uncommons at 105-120, trainer commons at 121-132
       'Rare Holo': [1, 34],
       'Uncommon':  [35, 88],
       'Common':    [89, 132],
     },
-    rarityTotals: { 'Rare Holo': 34, 'Uncommon': 54, 'Common': 44 },
+    rarityTotals: { 'Rare Holo': 19, 'Rare': 23, 'Uncommon': 42, 'Common': 48 },
   },
   {
     id: 'gym2',

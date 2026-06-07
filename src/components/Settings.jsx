@@ -3,6 +3,14 @@ import './Settings.css';
 
 const CHANGELOG = [
   {
+    version: '1.15.1',
+    date: '2026-06-07',
+    entries: [
+      'Fixed: achievement toasts no longer fire on page load for achievements already completed in a previous session',
+      'Gym Heroes achievements corrected — now has separate Rare and Rare Holo tiers with accurate card counts',
+    ],
+  },
+  {
     version: '1.15.0',
     date: '2026-06-06',
     entries: [
