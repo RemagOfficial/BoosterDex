@@ -2198,8 +2198,10 @@ export function computeProgress(allCards, collection) {
 
     for (const ach of set.achievements) {
       const relevant = ach.filter(setCards);
-      // If the set isn't loaded yet, fall back to the known card count
-      const total = relevant.length > 0 ? relevant.length : (ach.fallbackTotal ?? 0);
+      // Use fallback totals as a floor so partial card lists (for sets not fully
+      // loaded yet) can't be mistaken as complete.
+      const fallbackTotal = ach.fallbackTotal ?? 0;
+      const total = Math.max(relevant.length, fallbackTotal);
       // anyVariant: a card counts as owned if either the base or its _rh variant is owned
       const owned = ach.anyVariant
         ? relevant.filter((c) => ownedIds.has(c.id) || ownedIds.has(c.id + '_rh')).length

@@ -407,12 +407,29 @@ export default function App() {
   });
   const [achToasts, setAchToasts] = useState([]);
   const prevAchievementCompleteRef = useRef(new Set());
+  const achTrackingArmedRef = useRef(false);
 
   const dismissAchToast = useCallback((id) => {
     setAchToasts((prev) => prev.filter((t) => t.id !== id));
   }, []);
 
+  const armAchievementTracking = useCallback(() => {
+    if (achTrackingArmedRef.current || !allLoadedCards.length) return;
+    const progress = computeProgress(allLoadedCards, collection);
+    const baselineCompleteIds = new Set();
+    for (const achSet of ACHIEVEMENT_SETS) {
+      for (const ach of achSet.achievements) {
+        if (progress.get(ach.id)?.complete) {
+          baselineCompleteIds.add(ach.id);
+        }
+      }
+    }
+    prevAchievementCompleteRef.current = baselineCompleteIds;
+    achTrackingArmedRef.current = true;
+  }, [allLoadedCards, collection]);
+
   useEffect(() => {
+    if (!achTrackingArmedRef.current) return;
     if (!allLoadedCards.length) return;
     const progress = computeProgress(allLoadedCards, collection);
     const currentCompleteIds = new Set();
@@ -479,6 +496,8 @@ export default function App() {
     try { localStorage.removeItem(ECON_OPENED_KEY); } catch { /* ignore */ }
     resetStats();
     prevOwnedPerSet.current = {};
+    prevAchievementCompleteRef.current = new Set();
+    achTrackingArmedRef.current = false;
   }, [resetCollection, resetCoins]);
 
   // ── Tutorial ───────────────────────────────────────────────────────────────
@@ -555,6 +574,7 @@ export default function App() {
   const showSetSelector = !selectedSetId || (!currentSetCards && !setLoading && !setError);
 
   const handleCardsAdded = useCallback((drawnCards) => {
+    armAchievementTracking();
     addCards(drawnCards);
     if (!economyMode) return;
     if (!selectedSetId || isBoosterDexSelected) return;
@@ -566,7 +586,7 @@ export default function App() {
       saveEcoOpenedSetIds(next);
       return next;
     });
-  }, [addCards, economyMode, selectedSetId, isBoosterDexSelected]);
+  }, [armAchievementTracking, addCards, economyMode, selectedSetId, isBoosterDexSelected]);
 
   const getEffectiveSellSetId = useCallback((card) => {
     if (isBoosterDexSelected) {

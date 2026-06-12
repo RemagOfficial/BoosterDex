@@ -3,6 +3,13 @@ import './Settings.css';
 
 const CHANGELOG = [
   {
+    version: '1.15.2',
+    date: '2026-06-12',
+    entries: [
+      'Fixed: achievements are no longer checked for completion on page load; completion toasts now only trigger during active gameplay',
+    ],
+  },
+  {
     version: '1.15.1',
     date: '2026-06-07',
     entries: [
