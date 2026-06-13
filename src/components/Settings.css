@@ -135,6 +135,39 @@
   background: rgba(248, 113, 113, 0.2);
 }
 
+.btn-reset--recheck {
+  flex-shrink: 0;
+  padding: 6px 14px;
+  border-radius: 6px;
+  border: 1px solid rgba(56, 189, 248, 0.35);
+  background: rgba(56, 189, 248, 0.12);
+  color: #38bdf8;
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.btn-reset--recheck:hover:not(:disabled) {
+  background: rgba(56, 189, 248, 0.22);
+}
+
+.btn-reset--recheck:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.settings-toggle-row--stack {
+  align-items: flex-start;
+}
+
+.settings-recheck-status {
+  margin: 7px 0 0;
+  font-size: 0.75rem;
+  color: #7dd3fc;
+  line-height: 1.45;
+}
+
 .settings-reset-confirm {
   display: flex;
   flex-direction: column;

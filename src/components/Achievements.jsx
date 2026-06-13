@@ -58,6 +58,7 @@ export default function Achievements({ collection, allCards, economyMode = false
   const [showFilter, setShowFilter] = useState(false);
   const [selSeries, setSelSeries] = useState(() => new Set(loadStoredArray('pkmon_ach_series')));
   const [selYears,  setSelYears]  = useState(() => new Set(loadStoredArray('pkmon_ach_years')));
+  const [hideComplete, setHideComplete] = useState(() => loadStoredValue('pkmon_ach_hide_complete', false));
   const [search, setSearch] = useState(() => loadStoredValue('pkmon_ach_search', ''));
   const [expansionView, setExpansionView] = useState(() => loadStoredValue('pkmon_ach_expansion_view', 'main'));
   const filterPopupRef = useRef(null);
@@ -65,6 +66,7 @@ export default function Achievements({ collection, allCards, economyMode = false
   useEffect(() => { saveStoredValue('pkmon_ach_active_set', activeSet); }, [activeSet]);
   useEffect(() => { saveStoredArray('pkmon_ach_series', [...selSeries]); }, [selSeries]);
   useEffect(() => { saveStoredArray('pkmon_ach_years', [...selYears]); }, [selYears]);
+  useEffect(() => { saveStoredValue('pkmon_ach_hide_complete', hideComplete); }, [hideComplete]);
   useEffect(() => { saveStoredValue('pkmon_ach_search', search); }, [search]);
   useEffect(() => { saveStoredValue('pkmon_ach_expansion_view', expansionView); }, [expansionView]);
 
@@ -87,8 +89,8 @@ export default function Achievements({ collection, allCards, economyMode = false
   );
 
   // ── Set list view ────────────────────────────────────────────────────────
-  const activeFilterCount = selSeries.size + selYears.size;
-  const clearAllFilters = () => { setSelSeries(new Set()); setSelYears(new Set()); };
+  const activeFilterCount = selSeries.size + selYears.size + (hideComplete ? 1 : 0);
+  const clearAllFilters = () => { setSelSeries(new Set()); setSelYears(new Set()); setHideComplete(false); };
   const setMeta = Object.fromEntries(SETS.map((s) => [s.id, s]));
   const scopedSets = useMemo(
     () => SETS.filter((set) => (expansionView === 'special' ? isSpecialExpansion(set) : !isSpecialExpansion(set))),
@@ -108,6 +110,11 @@ export default function Achievements({ collection, allCards, economyMode = false
       const q = search.trim().toLowerCase();
       const hay = `${set.name} ${series} ${year}`.toLowerCase();
       if (!hay.includes(q)) return false;
+    }
+    if (hideComplete) {
+      const total = set.achievements.length;
+      const complete = set.achievements.filter((a) => progress.get(a.id)?.complete).length;
+      if (complete >= total) return false;
     }
     return true;
   });
@@ -167,6 +174,9 @@ export default function Achievements({ collection, allCards, economyMode = false
                 {[...selYears].map((y) => (
                   <button key={y} className="ss-chip" onClick={() => setSelYears(toggleSet(selYears, y))}>{y} &times;</button>
                 ))}
+                {hideComplete && (
+                  <button className="ss-chip" onClick={() => setHideComplete(false)}>Hide completed &times;</button>
+                )}
                 <button className="ss-chip ss-chip--clear" onClick={clearAllFilters}>Clear all</button>
               </div>
             )}
@@ -187,6 +197,18 @@ export default function Achievements({ collection, allCards, economyMode = false
                     {yearOptions.map((y) => (
                       <button key={y} className={`ss-option${selYears.has(y) ? ' ss-option--on' : ''}`} onClick={() => setSelYears(toggleSet(selYears, y))}>{y}</button>
                     ))}
+                  </div>
+                </div>
+                <div className="ss-popup__divider" />
+                <div className="ss-popup__section">
+                  <span className="ss-popup__label">Set Progress</span>
+                  <div className="ss-popup__options">
+                    <button
+                      className={`ss-option${hideComplete ? ' ss-option--on' : ''}`}
+                      onClick={() => setHideComplete((v) => !v)}
+                    >
+                      Hide completed sets
+                    </button>
                   </div>
                 </div>
                 {activeFilterCount > 0 && (

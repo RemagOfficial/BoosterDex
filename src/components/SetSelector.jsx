@@ -10,6 +10,13 @@ function isSpecialExpansion(set) {
   return set?.expansionGroup === 'special';
 }
 
+function isOfficialNumberedCard(card, setConfig) {
+  if (!setConfig?.totalCards) return true;
+  const n = parseInt(String(card?.localId ?? ''), 10);
+  if (Number.isNaN(n)) return false;
+  return n <= setConfig.totalCards;
+}
+
 function toggle(set, value) {
   const next = new Set(set);
   if (next.has(value)) next.delete(value); else next.add(value);
@@ -32,6 +39,8 @@ function saveStoredArray(key, value) {
 export default function SetSelector({
   onSelect,
   setSymbols = {},
+  collection = [],
+  loadedSets = {},
   economyMode = false,
   boosterDexMainLoadedSetCount = 0,
   boosterDexMainLoadedCardCount = 0,
@@ -49,6 +58,9 @@ export default function SetSelector({
   const [selYears,   setSelYears]   = useState(() => new Set(loadStoredArray('pkmon_set_selector_years')));
   const [boosterDexOnly, setBoosterDexOnly] = useState(() => {
     try { return localStorage.getItem('pkmon_set_selector_boosterdex') === '1'; } catch { return false; }
+  });
+  const [hideComplete, setHideComplete] = useState(() => {
+    try { return localStorage.getItem('pkmon_set_selector_hide_complete') === '1'; } catch { return false; }
   });
   const [search, setSearch] = useState(() => {
     try { return localStorage.getItem('pkmon_set_selector_search') ?? ''; } catch { return ''; }
@@ -93,6 +105,12 @@ export default function SetSelector({
     } catch { /* ignore */ }
   }, [boosterDexOnly]);
   useEffect(() => {
+    try {
+      if (hideComplete) localStorage.setItem('pkmon_set_selector_hide_complete', '1');
+      else localStorage.removeItem('pkmon_set_selector_hide_complete');
+    } catch { /* ignore */ }
+  }, [hideComplete]);
+  useEffect(() => {
     try { localStorage.setItem('pkmon_set_selector_search', search); } catch { /* ignore */ }
   }, [search]);
   useEffect(() => {
@@ -130,6 +148,15 @@ export default function SetSelector({
     const regularSets = scopedSets.filter((s) => {
       if (selSeries.size > 0 && !selSeries.has(s.series)) return false;
       if (selYears.size  > 0 && !selYears.has(s.year))   return false;
+      if (hideComplete) {
+        const owned = collection.filter((c) => (
+          (c.setId ?? 'base1') === s.id
+          && !c.reverseHolo
+          && isOfficialNumberedCard(c, s)
+        )).length;
+        const total = (loadedSets[s.id]?.filter((c) => !c.reverseHolo && isOfficialNumberedCard(c, s)).length) ?? s.totalCards;
+        if (owned > 0 && owned >= total) return false;
+      }
       if (q) {
         const hay = `${s.name} ${s.series} ${s.year}`.toLowerCase();
         return hay.includes(q);
@@ -145,13 +172,14 @@ export default function SetSelector({
     }
 
     return megaMatchesSearch ? [megaPack, ...regularSets] : regularSets;
-  }, [selSeries, selYears, search, economyMode, boosterDexOnly, scopedSets, expansionView, boosterDexMainLoadedSetCount, boosterDexMainLoadedCardCount, boosterDexMainUnlocked, boosterDexSpecialLoadedSetCount, boosterDexSpecialLoadedCardCount, boosterDexSpecialUnlocked]);
+  }, [selSeries, selYears, search, economyMode, boosterDexOnly, hideComplete, scopedSets, expansionView, boosterDexMainLoadedSetCount, boosterDexMainLoadedCardCount, boosterDexMainUnlocked, boosterDexSpecialLoadedSetCount, boosterDexSpecialLoadedCardCount, boosterDexSpecialUnlocked, collection, loadedSets]);
 
-  const activeCount = selSeries.size + selYears.size + (boosterDexOnly ? 1 : 0);
+  const activeCount = selSeries.size + selYears.size + (boosterDexOnly ? 1 : 0) + (hideComplete ? 1 : 0);
   const clearAll = () => {
     setSelSeries(new Set());
     setSelYears(new Set());
     setBoosterDexOnly(false);
+    setHideComplete(false);
   };
 
   return (
@@ -218,6 +246,11 @@ export default function SetSelector({
                   BoosterDex &times;
                 </button>
               )}
+              {hideComplete && (
+                <button className="ss-chip" onClick={() => setHideComplete(false)}>
+                  Hide completed &times;
+                </button>
+              )}
               <button className="ss-chip ss-chip--clear" onClick={clearAll}>Clear all</button>
             </div>
           )}
@@ -266,6 +299,18 @@ export default function SetSelector({
                 </div>
               </div>
             </>
+            <div className="ss-popup__divider" />
+            <div className="ss-popup__section">
+              <span className="ss-popup__label">Set Progress</span>
+              <div className="ss-popup__options">
+                <button
+                  className={`ss-option${hideComplete ? ' ss-option--on' : ''}`}
+                  onClick={() => setHideComplete((v) => !v)}
+                >
+                  Hide completed sets
+                </button>
+              </div>
+            </div>
             {activeCount > 0 && (
               <>
                 <div className="ss-popup__divider" />

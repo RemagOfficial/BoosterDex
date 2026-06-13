@@ -3,6 +3,16 @@ import './Settings.css';
 
 const CHANGELOG = [
   {
+    version: '1.15.3',
+    date: '2026-06-13',
+    entries: [
+      'Fixed: achievement completion claims are now persisted more reliably, preventing missing completed achievements on existing saves',
+      'Added: Recheck Achievements button in Settings to scan all sets and restore any completed achievements that were not marked correctly',
+      'Fixed: set completion modal now respects saved completion state and no longer reappears after refreshing the page',
+      'Added: Hide completed sets filter is now available on Open Packs and Achievements set lists (matching Collection)',
+    ],
+  },
+  {
     version: '1.15.2',
     date: '2026-06-12',
     entries: [
@@ -203,11 +213,13 @@ const CHANGELOG = [
   },
 ];
 
-export default function Settings({ onClose, mode = 'sandbox', onModeChange, onResetProgress }) {
+export default function Settings({ onClose, mode = 'sandbox', onModeChange, onResetProgress, onRecheckAchievements }) {
   const [gyroDisabled, setGyroDisabled] = useState(
     () => localStorage.getItem('pkmon_gyro_disabled') === 'true'
   );
   const [confirmReset, setConfirmReset] = useState(false);
+  const [recheckBusy, setRecheckBusy] = useState(false);
+  const [recheckStatus, setRecheckStatus] = useState('');
 
   const toggleGyro = () => {
     const next = !gyroDisabled;
@@ -223,6 +235,26 @@ export default function Settings({ onClose, mode = 'sandbox', onModeChange, onRe
     onResetProgress?.();
     setConfirmReset(false);
     onClose();
+  };
+
+  const handleRecheckAchievements = () => {
+    if (!onRecheckAchievements || recheckBusy) return;
+    setRecheckBusy(true);
+    setRecheckStatus('');
+    try {
+      const result = onRecheckAchievements() ?? { claimedCount: 0, packsAwarded: 0 };
+      const claimedCount = result.claimedCount ?? 0;
+      const packsAwarded = result.packsAwarded ?? 0;
+      if (claimedCount > 0) {
+        setRecheckStatus(`Recheck complete: restored ${claimedCount} achievement${claimedCount !== 1 ? 's' : ''}${packsAwarded > 0 ? ` and awarded ${packsAwarded} free pack${packsAwarded !== 1 ? 's' : ''}` : ''}.`);
+      } else {
+        setRecheckStatus('Recheck complete: no missing achievements found.');
+      }
+    } catch {
+      setRecheckStatus('Recheck failed. Please try again.');
+    } finally {
+      setRecheckBusy(false);
+    }
   };
 
   return (
@@ -268,6 +300,20 @@ export default function Settings({ onClose, mode = 'sandbox', onModeChange, onRe
 
           <section className="settings-section settings-section--danger">
             <h3 className="settings-section__title">Data</h3>
+            <div className="settings-toggle-row settings-toggle-row--stack">
+              <div>
+                <span className="settings-toggle-label">Recheck Achievements</span>
+                <p className="settings-toggle-desc">Scan all achievements and restore any completed ones missing from save data.</p>
+                {recheckStatus && <p className="settings-recheck-status">{recheckStatus}</p>}
+              </div>
+              <button
+                className="btn-reset btn-reset--recheck"
+                onClick={handleRecheckAchievements}
+                disabled={recheckBusy}
+              >
+                {recheckBusy ? 'Checking...' : 'Recheck'}
+              </button>
+            </div>
             {confirmReset ? (
               <div className="settings-reset-confirm">
                 <p className="settings-reset-confirm__text">

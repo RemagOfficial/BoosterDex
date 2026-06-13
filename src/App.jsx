@@ -12,7 +12,7 @@ import { cacheClearAll } from './services/cache.js';
 import { SETS } from './services/sets.js';
 import { PACK_PRICES, getSellPrice, STARTING_BALANCE, BOOSTER_BOX_SIZE, BOOSTER_BOX_MULTIPLIER } from './services/economy.js';
 import { ACHIEVEMENT_SETS, computeProgress, getAchievementReward } from './services/achievements.js';
-import { resetStats, recordSetCompletion } from './services/stats.js';
+import { getAllStats, resetStats, recordSetCompletion } from './services/stats.js';
 import Settings from './components/Settings.jsx';
 import CoinFlip from './components/CoinFlip.jsx';
 import AchToast from './components/AchToast.jsx';
@@ -383,18 +383,27 @@ export default function App() {
   const [setCompleteName, setSetCompleteName] = useState('');
   const [setCompleteTotal, setSetCompleteTotal] = useState(0);
   const prevOwnedPerSet = useRef({});
+  const completedSetIdsRef = useRef(
+    new Set(
+      Object.entries(getAllStats())
+        .filter(([, stats]) => stats?.packsAtCompletion != null)
+        .map(([setId]) => setId)
+    )
+  );
 
   useEffect(() => {
     const ownedIds = new Set(collection.map((c) => c.id));
     for (const [setId, setCards] of Object.entries(loadedSets)) {
       const currentOwned = setCards.filter((c) => ownedIds.has(c.id)).length;
       const prevOwned = prevOwnedPerSet.current[setId] ?? 0;
-      if (prevOwned < setCards.length && currentOwned >= setCards.length) {
+      const alreadyCompleted = completedSetIdsRef.current.has(setId);
+      if (prevOwned < setCards.length && currentOwned >= setCards.length && !alreadyCompleted) {
         const cfg = SETS.find((s) => s.id === setId);
         setSetCompleteName(cfg?.name ?? setId);
         setSetCompleteTotal(setCards.length);
         setSetComplete(true);
         recordSetCompletion(setId);
+        completedSetIdsRef.current.add(setId);
       }
       prevOwnedPerSet.current[setId] = currentOwned;
     }
@@ -413,6 +422,43 @@ export default function App() {
     setAchToasts((prev) => prev.filter((t) => t.id !== id));
   }, []);
 
+  const applyAchievementClaims = useCallback((claims, { showToasts = true } = {}) => {
+    if (!Array.isArray(claims) || claims.length === 0) {
+      return { claimedCount: 0, packsAwarded: 0 };
+    }
+
+    const eligibleIds = setsWithCards.length > 0 ? setsWithCards : ['base1'];
+    const newToasts = [];
+    let packsAwarded = 0;
+
+    for (const { ach, setName } of claims) {
+      let packs = 0;
+      if (economyMode) {
+        packs = getAchievementReward(ach);
+        packsAwarded += packs;
+        for (let i = 0; i < packs; i++) {
+          const randomSetId = eligibleIds[Math.floor(Math.random() * eligibleIds.length)];
+          awardFreePack(randomSetId);
+        }
+      }
+      if (showToasts && ach.rarity !== null) {
+        newToasts.push({ id: ach.id, title: ach.title, icon: ach.icon, rarity: ach.rarity, setName, packs });
+      }
+    }
+
+    if (newToasts.length > 0) {
+      setAchToasts((prev) => [...prev, ...newToasts]);
+    }
+
+    setClaimedAchievements((prev) => {
+      const next = new Set(prev);
+      for (const { ach } of claims) next.add(ach.id);
+      return next;
+    });
+
+    return { claimedCount: claims.length, packsAwarded };
+  }, [awardFreePack, economyMode, setsWithCards]);
+
   const armAchievementTracking = useCallback(() => {
     if (achTrackingArmedRef.current || !allLoadedCards.length) return;
     const progress = computeProgress(allLoadedCards, collection);
@@ -427,6 +473,10 @@ export default function App() {
     prevAchievementCompleteRef.current = baselineCompleteIds;
     achTrackingArmedRef.current = true;
   }, [allLoadedCards, collection]);
+
+  useEffect(() => {
+    try { localStorage.setItem('pkmon_claimed_ach', JSON.stringify([...claimedAchievements])); } catch { /* ignore */ }
+  }, [claimedAchievements]);
 
   useEffect(() => {
     if (!achTrackingArmedRef.current) return;
@@ -450,35 +500,36 @@ export default function App() {
 
     prevAchievementCompleteRef.current = currentCompleteIds;
     if (newClaims.length === 0) return;
+    applyAchievementClaims(newClaims, { showToasts: true });
+  // claimedAchievements intentionally omitted — we only re-run on collection/cards change
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [collection, allLoadedCards, applyAchievementClaims]);
 
-    // Award packs in economy mode (fall back to base1 if no sets with cards yet)
-    const eligibleIds = setsWithCards.length > 0 ? setsWithCards : ['base1'];
-    const newToasts = [];
-    for (const { ach, setName } of newClaims) {
-      let packs = 0;
-      if (economyMode) {
-        packs = getAchievementReward(ach);
-        for (let i = 0; i < packs; i++) {
-          const randomSetId = eligibleIds[Math.floor(Math.random() * eligibleIds.length)];
-          awardFreePack(randomSetId);
+  const recheckAchievements = useCallback(() => {
+    if (!allLoadedCards.length) {
+      return { claimedCount: 0, packsAwarded: 0 };
+    }
+
+    const progress = computeProgress(allLoadedCards, collection);
+    const currentCompleteIds = new Set();
+    const missingClaims = [];
+
+    for (const achSet of ACHIEVEMENT_SETS) {
+      for (const ach of achSet.achievements) {
+        const complete = progress.get(ach.id)?.complete;
+        if (!complete) continue;
+        currentCompleteIds.add(ach.id);
+        if (!claimedAchievements.has(ach.id)) {
+          missingClaims.push({ ach, setName: achSet.name });
         }
-      }
-      // Skip full-set toasts — the set-complete modal already fires for those
-      if (ach.rarity !== null) {
-        newToasts.push({ id: ach.id, title: ach.title, icon: ach.icon, rarity: ach.rarity, setName, packs });
       }
     }
 
-    if (newToasts.length > 0) setAchToasts((prev) => [...prev, ...newToasts]);
+    prevAchievementCompleteRef.current = currentCompleteIds;
+    achTrackingArmedRef.current = true;
 
-    setClaimedAchievements((prev) => {
-      const next = new Set([...prev, ...newClaims.map(({ ach }) => ach.id)]);
-      try { localStorage.setItem('pkmon_claimed_ach', JSON.stringify([...next])); } catch { /* ignore */ }
-      return next;
-    });
-  // claimedAchievements intentionally omitted — we only re-run on collection/cards change
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [collection, allLoadedCards, economyMode]);
+    return applyAchievementClaims(missingClaims, { showToasts: false });
+  }, [allLoadedCards, applyAchievementClaims, claimedAchievements, collection]);
 
   // ── Reset progress ──────────────────────────────────────────────────────────
   const resetProgress = useCallback(() => {
@@ -496,6 +547,7 @@ export default function App() {
     try { localStorage.removeItem(ECON_OPENED_KEY); } catch { /* ignore */ }
     resetStats();
     prevOwnedPerSet.current = {};
+    completedSetIdsRef.current = new Set();
     prevAchievementCompleteRef.current = new Set();
     achTrackingArmedRef.current = false;
   }, [resetCollection, resetCoins]);
@@ -799,6 +851,8 @@ export default function App() {
               <SetSelector
                 onSelect={handleSelectSet}
                 setSymbols={setSymbols}
+                collection={collection}
+                loadedSets={loadedSets}
                 economyMode={economyMode}
                 boosterDexMainLoadedSetCount={boosterDexMainSetCount}
                 boosterDexMainLoadedCardCount={boosterDexMainCards.length}
@@ -909,7 +963,15 @@ export default function App() {
         )}
       </main>
     </div>
-    {showSettings && <Settings onClose={() => setShowSettings(false)} mode={mode} onModeChange={handleModeChange} onResetProgress={resetProgress} />}
+    {showSettings && (
+      <Settings
+        onClose={() => setShowSettings(false)}
+        mode={mode}
+        onModeChange={handleModeChange}
+        onResetProgress={resetProgress}
+        onRecheckAchievements={recheckAchievements}
+      />
+    )}
     {showCoinFlip && (
       <CoinFlip
         eligibleSets={eligibleFlipSets}
