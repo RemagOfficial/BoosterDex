@@ -13,6 +13,7 @@ import { SETS } from './services/sets.js';
 import { PACK_PRICES, getSellPrice, STARTING_BALANCE, BOOSTER_BOX_SIZE, BOOSTER_BOX_MULTIPLIER } from './services/economy.js';
 import { ACHIEVEMENT_SETS, computeProgress, getAchievementReward } from './services/achievements.js';
 import { getAllStats, resetStats, recordSetCompletion } from './services/stats.js';
+import { encryptSavePayload, decryptSavePayload, downloadSaveObject, readTextFile } from './services/saveTransfer.js';
 import Settings from './components/Settings.jsx';
 import CoinFlip from './components/CoinFlip.jsx';
 import AchToast from './components/AchToast.jsx';
@@ -23,6 +24,42 @@ import './App.css';
 const BOOSTERDEX_MAIN_SET_ID = '__boosterdex_main__';
 const BOOSTERDEX_SPECIAL_SET_ID = '__boosterdex_special__';
 const ECON_OPENED_KEY = 'pkmon_eco_opened_sets';
+const LEGACY_CLAIMED_ACH_KEY = 'pkmon_claimed_ach';
+
+function getClaimedAchievementsKey(mode) {
+  return mode === 'economy' ? 'pkmon_claimed_ach_economy' : 'pkmon_claimed_ach_sandbox';
+}
+
+function getFavouritesKey(mode) {
+  return mode === 'economy' ? 'pkmon_favourites_economy' : 'pkmon_favourites_sandbox';
+}
+
+function getStatsKey(mode) {
+  return mode === 'economy' ? 'pkmon_stats_economy' : 'pkmon_stats_sandbox';
+}
+
+function getCollectionKey(mode) {
+  return mode === 'economy' ? 'pkmon_eco_collection' : 'pokemon_collection';
+}
+
+function loadClaimedAchievements(mode) {
+  try {
+    const modeKey = getClaimedAchievementsKey(mode);
+    const modeRaw = localStorage.getItem(modeKey);
+    if (modeRaw) {
+      return new Set(JSON.parse(modeRaw));
+    }
+    // Legacy migration path: old claimed achievements were shared.
+    const legacyRaw = localStorage.getItem(LEGACY_CLAIMED_ACH_KEY);
+    if (legacyRaw && mode === 'sandbox') {
+      localStorage.setItem(modeKey, legacyRaw);
+      return new Set(JSON.parse(legacyRaw));
+    }
+  } catch {
+    // ignore
+  }
+  return new Set();
+}
 
 function isSpecialExpansion(set) {
   return set?.expansionGroup === 'special';
@@ -411,8 +448,7 @@ export default function App() {
 
   // ── Achievement pack rewards (economy mode) ────────────────────────────────
   const [claimedAchievements, setClaimedAchievements] = useState(() => {
-    try { return new Set(JSON.parse(localStorage.getItem('pkmon_claimed_ach') ?? '[]')); }
-    catch { return new Set(); }
+    return loadClaimedAchievements(mode);
   });
   const [achToasts, setAchToasts] = useState([]);
   const prevAchievementCompleteRef = useRef(new Set());
@@ -475,8 +511,14 @@ export default function App() {
   }, [allLoadedCards, collection]);
 
   useEffect(() => {
-    try { localStorage.setItem('pkmon_claimed_ach', JSON.stringify([...claimedAchievements])); } catch { /* ignore */ }
-  }, [claimedAchievements]);
+    try { localStorage.setItem(getClaimedAchievementsKey(mode), JSON.stringify([...claimedAchievements])); } catch { /* ignore */ }
+  }, [claimedAchievements, mode]);
+
+  useEffect(() => {
+    setClaimedAchievements(loadClaimedAchievements(mode));
+    prevAchievementCompleteRef.current = new Set();
+    achTrackingArmedRef.current = false;
+  }, [mode]);
 
   useEffect(() => {
     if (!achTrackingArmedRef.current) return;
@@ -512,7 +554,25 @@ export default function App() {
 
     const progress = computeProgress(allLoadedCards, collection);
     const currentCompleteIds = new Set();
-    const missingClaims = [];
+    const missingClaimsById = new Map();
+
+    // If a set is fully complete, force-grant every achievement in that set.
+    // For sets with variant achievements, this requires full all-variants completion.
+    for (const achSet of ACHIEVEMENT_SETS) {
+      if (achSet.id === 'global') continue;
+      const allVariantAchievement = achSet.achievements.find((ach) => ach.rarity === 'all-variants');
+      const completionAchievement = allVariantAchievement
+        ?? achSet.achievements.find((ach) => ach.rarity === null);
+      const setFullyComplete = completionAchievement
+        ? Boolean(progress.get(completionAchievement.id)?.complete)
+        : false;
+      if (!setFullyComplete) continue;
+
+      for (const ach of achSet.achievements) {
+        if (claimedAchievements.has(ach.id)) continue;
+        missingClaimsById.set(ach.id, { ach, setName: achSet.name });
+      }
+    }
 
     for (const achSet of ACHIEVEMENT_SETS) {
       for (const ach of achSet.achievements) {
@@ -520,7 +580,7 @@ export default function App() {
         if (!complete) continue;
         currentCompleteIds.add(ach.id);
         if (!claimedAchievements.has(ach.id)) {
-          missingClaims.push({ ach, setName: achSet.name });
+          missingClaimsById.set(ach.id, { ach, setName: achSet.name });
         }
       }
     }
@@ -528,7 +588,7 @@ export default function App() {
     prevAchievementCompleteRef.current = currentCompleteIds;
     achTrackingArmedRef.current = true;
 
-    return applyAchievementClaims(missingClaims, { showToasts: false });
+    return applyAchievementClaims([...missingClaimsById.values()], { showToasts: false });
   }, [allLoadedCards, applyAchievementClaims, claimedAchievements, collection]);
 
   // ── Reset progress ──────────────────────────────────────────────────────────
@@ -538,8 +598,8 @@ export default function App() {
     setFreePacks({});
     try { localStorage.removeItem('pkmon_free_packs'); } catch { /* ignore */ }
     setClaimedAchievements(new Set());
-    try { localStorage.removeItem('pkmon_claimed_ach'); } catch { /* ignore */ }
-    try { localStorage.removeItem('pkmon_favourites'); } catch { /* ignore */ }
+    try { localStorage.removeItem(getClaimedAchievementsKey(mode)); } catch { /* ignore */ }
+    try { localStorage.removeItem(getFavouritesKey(mode)); } catch { /* ignore */ }
     try { localStorage.removeItem('pkmon_showcase'); } catch { /* ignore */ }
     setPityCounters({});
     try { localStorage.removeItem('pkmon_pity'); } catch { /* ignore */ }
@@ -550,7 +610,72 @@ export default function App() {
     completedSetIdsRef.current = new Set();
     prevAchievementCompleteRef.current = new Set();
     achTrackingArmedRef.current = false;
-  }, [resetCollection, resetCoins]);
+  }, [mode, resetCollection, resetCoins]);
+
+  const exportSave = useCallback(async (targetMode, passphrase) => {
+    const collectionKey = getCollectionKey(targetMode);
+    const statsKey = getStatsKey(targetMode);
+    const favouritesKey = getFavouritesKey(targetMode);
+    const claimedKey = getClaimedAchievementsKey(targetMode);
+
+    const parseJson = (key, fallback) => {
+      try {
+        const raw = localStorage.getItem(key);
+        return raw ? JSON.parse(raw) : fallback;
+      } catch {
+        return fallback;
+      }
+    };
+
+    const data = {
+      collection: parseJson(collectionKey, []),
+      favourites: parseJson(favouritesKey, []),
+      claimedAchievements: parseJson(claimedKey, []),
+      stats: parseJson(statsKey, {}),
+    };
+
+    if (targetMode === 'economy') {
+      data.coins = (() => {
+        const n = Number(localStorage.getItem('pkmon_economy_coins'));
+        return Number.isFinite(n) ? n : STARTING_BALANCE;
+      })();
+      data.freePacks = parseJson('pkmon_free_packs', {});
+      data.pityCounters = parseJson('pkmon_pity', {});
+      data.openedSetIds = parseJson(ECON_OPENED_KEY, []);
+    }
+
+    const encrypted = await encryptSavePayload({ mode: targetMode, data }, passphrase);
+    const stamp = new Date().toISOString().replace(/[:.]/g, '-');
+    downloadSaveObject(encrypted, `boosterdex-${targetMode}-save-${stamp}.pkmonsave`);
+  }, []);
+
+  const importSave = useCallback(async (file, passphrase) => {
+    const fileText = await readTextFile(file);
+    const payload = await decryptSavePayload(fileText, passphrase);
+    const targetMode = payload.mode;
+    const data = payload.data ?? {};
+
+    const writeJson = (key, value, fallback) => {
+      const next = value == null ? fallback : value;
+      localStorage.setItem(key, JSON.stringify(next));
+    };
+
+    writeJson(getCollectionKey(targetMode), data.collection, []);
+    writeJson(getFavouritesKey(targetMode), data.favourites, []);
+    writeJson(getClaimedAchievementsKey(targetMode), data.claimedAchievements, []);
+    writeJson(getStatsKey(targetMode), data.stats, {});
+
+    if (targetMode === 'economy') {
+      const coinsValue = Number(data.coins);
+      const safeCoins = Number.isFinite(coinsValue) ? Math.max(0, Math.floor(coinsValue)) : STARTING_BALANCE;
+      localStorage.setItem('pkmon_economy_coins', String(safeCoins));
+      writeJson('pkmon_free_packs', data.freePacks, {});
+      writeJson('pkmon_pity', data.pityCounters, {});
+      writeJson(ECON_OPENED_KEY, data.openedSetIds, []);
+    }
+
+    return { mode: targetMode };
+  }, []);
 
   // ── Tutorial ───────────────────────────────────────────────────────────────
   const [showTutorial, setShowTutorial] = useState(() => {
@@ -600,8 +725,8 @@ export default function App() {
 
   const devClearAchievements = useCallback(() => {
     setClaimedAchievements(new Set());
-    try { localStorage.removeItem('pkmon_claimed_ach'); } catch { /* ignore */ }
-  }, []);
+    try { localStorage.removeItem(getClaimedAchievementsKey(mode)); } catch { /* ignore */ }
+  }, [mode]);
 
   const devAwardFreePacks = useCallback((n) => {
     const targetSet = selectedSetId ?? 'base1';
@@ -970,6 +1095,8 @@ export default function App() {
         onModeChange={handleModeChange}
         onResetProgress={resetProgress}
         onRecheckAchievements={recheckAchievements}
+        onExportSave={exportSave}
+        onImportSave={importSave}
       />
     )}
     {showCoinFlip && (

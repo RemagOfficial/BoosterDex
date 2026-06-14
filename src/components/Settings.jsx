@@ -1,7 +1,14 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import './Settings.css';
 
 const CHANGELOG = [
+  {
+    version: '1.15.4',
+    date: '2026-06-14',
+    entries: [
+      'Added secure save export/import with encrypted, checksummed save files and mode-aware imports for Sandbox and Economy saves',
+    ],
+  },
   {
     version: '1.15.3',
     date: '2026-06-13',
@@ -213,13 +220,16 @@ const CHANGELOG = [
   },
 ];
 
-export default function Settings({ onClose, mode = 'sandbox', onModeChange, onResetProgress, onRecheckAchievements }) {
+export default function Settings({ onClose, mode = 'sandbox', onModeChange, onResetProgress, onRecheckAchievements, onExportSave, onImportSave }) {
   const [gyroDisabled, setGyroDisabled] = useState(
     () => localStorage.getItem('pkmon_gyro_disabled') === 'true'
   );
   const [confirmReset, setConfirmReset] = useState(false);
   const [recheckBusy, setRecheckBusy] = useState(false);
   const [recheckStatus, setRecheckStatus] = useState('');
+  const [saveBusy, setSaveBusy] = useState(false);
+  const [saveStatus, setSaveStatus] = useState('');
+  const importInputRef = useRef(null);
 
   const toggleGyro = () => {
     const next = !gyroDisabled;
@@ -254,6 +264,59 @@ export default function Settings({ onClose, mode = 'sandbox', onModeChange, onRe
       setRecheckStatus('Recheck failed. Please try again.');
     } finally {
       setRecheckBusy(false);
+    }
+  };
+
+  const askPassphrase = (label) => {
+    const passphrase = window.prompt(`${label}\n\nEnter a passphrase (at least 8 characters):`, '');
+    if (passphrase == null) return null;
+    if (passphrase.length < 8) {
+      setSaveStatus('Passphrase must be at least 8 characters.');
+      return null;
+    }
+    return passphrase;
+  };
+
+  const handleExportSave = async (targetMode) => {
+    if (!onExportSave || saveBusy) return;
+    const passphrase = askPassphrase(`Export ${targetMode} save`);
+    if (!passphrase) return;
+
+    setSaveBusy(true);
+    setSaveStatus('');
+    try {
+      await onExportSave(targetMode, passphrase);
+      setSaveStatus(`${targetMode === 'economy' ? 'Economy' : 'Sandbox'} save exported successfully.`);
+    } catch (err) {
+      setSaveStatus(err?.message ?? 'Export failed.');
+    } finally {
+      setSaveBusy(false);
+    }
+  };
+
+  const handleImportClick = () => {
+    if (!onImportSave || saveBusy) return;
+    importInputRef.current?.click();
+  };
+
+  const handleImportChange = async (e) => {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file || !onImportSave || saveBusy) return;
+
+    const passphrase = askPassphrase('Import save file');
+    if (!passphrase) return;
+
+    setSaveBusy(true);
+    setSaveStatus('');
+    try {
+      const result = await onImportSave(file, passphrase);
+      const importedMode = result?.mode === 'economy' ? 'Economy' : 'Sandbox';
+      setSaveStatus(`${importedMode} save imported. Reloading...`);
+      setTimeout(() => window.location.reload(), 250);
+    } catch (err) {
+      setSaveStatus(err?.message ?? 'Import failed.');
+      setSaveBusy(false);
     }
   };
 
@@ -300,6 +363,38 @@ export default function Settings({ onClose, mode = 'sandbox', onModeChange, onRe
 
           <section className="settings-section settings-section--danger">
             <h3 className="settings-section__title">Data</h3>
+            <div className="settings-save-row">
+              <button
+                className="btn-reset btn-reset--save"
+                onClick={() => handleExportSave('sandbox')}
+                disabled={saveBusy}
+              >
+                Export Sandbox
+              </button>
+              <button
+                className="btn-reset btn-reset--save"
+                onClick={() => handleExportSave('economy')}
+                disabled={saveBusy}
+              >
+                Export Economy
+              </button>
+              <button
+                className="btn-reset btn-reset--save-import"
+                onClick={handleImportClick}
+                disabled={saveBusy}
+              >
+                {saveBusy ? 'Working...' : 'Import Save'}
+              </button>
+              <input
+                ref={importInputRef}
+                type="file"
+                accept=".pkmonsave,.json"
+                className="settings-file-input"
+                onChange={handleImportChange}
+              />
+            </div>
+            <p className="settings-toggle-desc">Save files are encrypted and include checksum validation. Imports are mode-aware and only apply to their own mode profile.</p>
+            {saveStatus && <p className="settings-recheck-status">{saveStatus}</p>}
             <div className="settings-toggle-row settings-toggle-row--stack">
               <div>
                 <span className="settings-toggle-label">Recheck Achievements</span>

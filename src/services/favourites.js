@@ -3,7 +3,19 @@
  * Uses a stable base card ID as the key.
  */
 
-const KEY = 'pkmon_favourites';
+const LEGACY_KEY = 'pkmon_favourites';
+
+function getCurrentMode() {
+  try {
+    return localStorage.getItem('pkmon_mode') === 'economy' ? 'economy' : 'sandbox';
+  } catch {
+    return 'sandbox';
+  }
+}
+
+function getModeKey(mode = getCurrentMode()) {
+  return mode === 'economy' ? 'pkmon_favourites_economy' : 'pkmon_favourites_sandbox';
+}
 
 export function toFavouriteKey(cardId) {
   const id = String(cardId ?? '');
@@ -15,9 +27,18 @@ export function toFavouriteKey(cardId) {
 
 function load() {
   try {
-    const raw = localStorage.getItem(KEY);
-    if (!raw) return new Set();
-    const parsed = JSON.parse(raw);
+    const modeKey = getModeKey();
+    const raw = localStorage.getItem(modeKey);
+    // Migrate legacy favourites to sandbox profile once.
+    if (!raw) {
+      const legacy = localStorage.getItem(LEGACY_KEY);
+      if (legacy && modeKey === 'pkmon_favourites_sandbox') {
+        localStorage.setItem(modeKey, legacy);
+      }
+    }
+    const source = localStorage.getItem(modeKey);
+    if (!source) return new Set();
+    const parsed = JSON.parse(source);
     const normalized = new Set((Array.isArray(parsed) ? parsed : []).map(toFavouriteKey).filter(Boolean));
     if (normalized.size !== (Array.isArray(parsed) ? parsed.length : 0)) {
       save(normalized);
@@ -30,7 +51,7 @@ function load() {
 
 function save(set) {
   try {
-    localStorage.setItem(KEY, JSON.stringify([...set]));
+    localStorage.setItem(getModeKey(), JSON.stringify([...set]));
   } catch { /* ignore */ }
 }
 

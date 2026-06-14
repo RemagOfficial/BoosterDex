@@ -11,12 +11,33 @@
  * }
  */
 
-const KEY = 'pkmon_stats';
+const LEGACY_KEY = 'pkmon_stats';
+
+function getCurrentMode() {
+  try {
+    return localStorage.getItem('pkmon_mode') === 'economy' ? 'economy' : 'sandbox';
+  } catch {
+    return 'sandbox';
+  }
+}
+
+function getModeKey(mode = getCurrentMode()) {
+  return mode === 'economy' ? 'pkmon_stats_economy' : 'pkmon_stats_sandbox';
+}
 
 function load() {
   try {
-    const raw = localStorage.getItem(KEY);
-    return raw ? JSON.parse(raw) : {};
+    const modeKey = getModeKey();
+    const raw = localStorage.getItem(modeKey);
+    // Migrate legacy stats to sandbox profile once.
+    if (!raw) {
+      const legacy = localStorage.getItem(LEGACY_KEY);
+      if (legacy && modeKey === 'pkmon_stats_sandbox') {
+        localStorage.setItem(modeKey, legacy);
+      }
+    }
+    const source = localStorage.getItem(modeKey);
+    return source ? JSON.parse(source) : {};
   } catch {
     return {};
   }
@@ -24,7 +45,7 @@ function load() {
 
 function save(data) {
   try {
-    localStorage.setItem(KEY, JSON.stringify(data));
+    localStorage.setItem(getModeKey(), JSON.stringify(data));
   } catch { /* ignore */ }
 }
 
@@ -56,7 +77,7 @@ export function getAllStats() {
 
 /** Reset all stats (called from reset progress). */
 export function resetStats() {
-  try { localStorage.removeItem(KEY); } catch { /* ignore */ }
+  try { localStorage.removeItem(getModeKey()); } catch { /* ignore */ }
 }
 
 /**
