@@ -1,4 +1,4 @@
-import { useState, useMemo, useRef, useEffect } from 'react';
+import { useState, useMemo, useRef, useEffect, useCallback } from 'react';
 import { ACHIEVEMENT_SETS, computeProgress, getAchievementReward } from '../services/achievements.js';
 import { SETS } from '../services/sets.js';
 import './Achievements.css';
@@ -53,7 +53,7 @@ const RARITY_CLASS = {
   'all-variants':'rarity--master',
 };
 
-export default function Achievements({ collection, allCards, economyMode = false }) {
+export default function Achievements({ collection, allCards, economyMode = false, claimedAchievements = new Set() }) {
   const [activeSet, setActiveSet] = useState(() => loadStoredValue('pkmon_ach_active_set', null));
   const [showFilter, setShowFilter] = useState(false);
   const [selSeries, setSelSeries] = useState(() => new Set(loadStoredArray('pkmon_ach_series')));
@@ -87,6 +87,26 @@ export default function Achievements({ collection, allCards, economyMode = false
     () => (allCards ? computeProgress(allCards, collection) : new Map()),
     [allCards, collection],
   );
+  const claimedSet = useMemo(() => {
+    if (claimedAchievements instanceof Set) return claimedAchievements;
+    if (Array.isArray(claimedAchievements)) return new Set(claimedAchievements);
+    return new Set();
+  }, [claimedAchievements]);
+
+  const isAchievementDisplayComplete = useCallback((achSet, ach) => {
+    const prog = progress.get(ach.id);
+    if (prog?.complete) return true;
+    if (!claimedSet.has(ach.id)) return false;
+    if (achSet.id === 'global') return false;
+
+    // Only trust claimed-only completion when the set's master completion is
+    // currently satisfied, which avoids stale over-claimed entries.
+    const masterAch = achSet.achievements.find((a) => a.rarity === 'all-variants')
+      ?? achSet.achievements.find((a) => a.rarity === null)
+      ?? null;
+    if (!masterAch) return false;
+    return Boolean(progress.get(masterAch.id)?.complete);
+  }, [claimedSet, progress]);
 
   // ── Set list view ────────────────────────────────────────────────────────
   const activeFilterCount = selSeries.size + selYears.size + (hideComplete ? 1 : 0);
@@ -113,7 +133,7 @@ export default function Achievements({ collection, allCards, economyMode = false
     }
     if (hideComplete) {
       const total = set.achievements.length;
-      const complete = set.achievements.filter((a) => progress.get(a.id)?.complete).length;
+      const complete = set.achievements.filter((a) => isAchievementDisplayComplete(set, a)).length;
       if (complete >= total) return false;
     }
     return true;
@@ -224,7 +244,7 @@ export default function Achievements({ collection, allCards, economyMode = false
         <div className="ach-set-list">
           {visibleAchSets.map((set) => {
             const total    = set.achievements.length;
-            const complete = set.achievements.filter((a) => progress.get(a.id)?.complete).length;
+            const complete = set.achievements.filter((a) => isAchievementDisplayComplete(set, a)).length;
             const allDone  = complete === total;
             return (
               <button
@@ -267,14 +287,16 @@ export default function Achievements({ collection, allCards, economyMode = false
       <div className="ach-list">
         {set.achievements.map((ach) => {
           const prog = progress.get(ach.id) ?? { total: 0, owned: 0, complete: false };
-          const pct  = prog.total > 0 ? (prog.owned / prog.total) * 100 : 0;
+          const isComplete = isAchievementDisplayComplete(set, ach);
+          const ownedDisplay = isComplete ? prog.total : prog.owned;
+          const pct  = isComplete ? 100 : (prog.total > 0 ? (prog.owned / prog.total) * 100 : 0);
           return (
             <div
               key={ach.id}
-              className={`ach-item${prog.complete ? ' ach-item--complete' : ''}`}
+              className={`ach-item${isComplete ? ' ach-item--complete' : ''}`}
             >
               <div className={`ach-item__icon ${RARITY_CLASS[ach.rarity]}`}>
-                {prog.complete ? '✓' : ach.icon}
+                {isComplete ? '✓' : ach.icon}
               </div>
               <div className="ach-item__body">
                 <div className="ach-item__title">
@@ -289,12 +311,12 @@ export default function Achievements({ collection, allCards, economyMode = false
                 <div className="ach-item__progress-row">
                   <div className="ach-item__bar">
                     <div
-                      className={`ach-item__bar-fill${prog.complete ? ' ach-item__bar-fill--done' : ''}`}
+                      className={`ach-item__bar-fill${isComplete ? ' ach-item__bar-fill--done' : ''}`}
                       style={{ width: `${pct}%` }}
                     />
                   </div>
                   <span className="ach-item__fraction">
-                    {prog.owned} / {prog.total}
+                    {ownedDisplay} / {prog.total}
                   </span>
                 </div>
               </div>

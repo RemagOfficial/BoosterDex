@@ -674,6 +674,10 @@ export default function App() {
       writeJson(ECON_OPENED_KEY, data.openedSetIds, []);
     }
 
+    // Ensure the imported profile is the active one after reload.
+    try { localStorage.setItem('pkmon_mode', targetMode); } catch { /* ignore */ }
+    setMode(targetMode);
+
     return { mode: targetMode };
   }, []);
 
@@ -1076,6 +1080,7 @@ export default function App() {
             collection={collection}
             allCards={allLoadedCards}
             economyMode={economyMode}
+            claimedAchievements={claimedAchievements}
           />
         )}
 

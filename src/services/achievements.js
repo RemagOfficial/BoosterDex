@@ -323,7 +323,7 @@ export const ACHIEVEMENT_SETS = [
     name: 'Gym Challenge',
     year: '2000',
     achievements: [
-      { id: 'gym2-common',   title: 'Challenger',      description: 'Collect all Common cards',    icon: '○', rarity: 'Common',    fallbackTotal: 73,  filter: (c) => c.filter((x) => x.rarity === 'Common') },
+      { id: 'gym2-common',   title: 'Challenger',      description: 'Collect all Common cards',    icon: '○', rarity: 'Common',    fallbackTotal: 49,  filter: (c) => c.filter((x) => x.rarity === 'Common') },
       { id: 'gym2-uncommon', title: 'Rival\'s Path',   description: 'Collect all Uncommon cards',  icon: '◇', rarity: 'Uncommon',  fallbackTotal: 29,  filter: (c) => c.filter((x) => x.rarity === 'Uncommon') },
       { id: 'gym2-rare',     title: 'Badge Master',    description: 'Collect all Rare cards',      icon: '★', rarity: 'Rare',      fallbackTotal: 10,  filter: (c) => c.filter((x) => x.rarity === 'Rare' && !x.holo) },
       { id: 'gym2-holo',     title: 'Elite Trainer',   description: 'Collect all Rare Holo cards', icon: '✦', rarity: 'Rare Holo', fallbackTotal: 20,  filter: (c) => c.filter((x) => x.holo === true) },

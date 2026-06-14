@@ -3,6 +3,13 @@ import './Settings.css';
 
 const CHANGELOG = [
   {
+    version: '1.15.5',
+    date: '2026-06-14',
+    entries: [
+      'Fixed achievement issues',
+    ],
+  },
+  {
     version: '1.15.4',
     date: '2026-06-14',
     entries: [
@@ -229,7 +236,12 @@ export default function Settings({ onClose, mode = 'sandbox', onModeChange, onRe
   const [recheckStatus, setRecheckStatus] = useState('');
   const [saveBusy, setSaveBusy] = useState(false);
   const [saveStatus, setSaveStatus] = useState('');
+  const [passphraseOpen, setPassphraseOpen] = useState(false);
+  const [passphraseLabel, setPassphraseLabel] = useState('');
+  const [passphraseValue, setPassphraseValue] = useState('');
+  const [passphraseError, setPassphraseError] = useState('');
   const importInputRef = useRef(null);
+  const passphraseResolveRef = useRef(null);
 
   const toggleGyro = () => {
     const next = !gyroDisabled;
@@ -268,18 +280,35 @@ export default function Settings({ onClose, mode = 'sandbox', onModeChange, onRe
   };
 
   const askPassphrase = (label) => {
-    const passphrase = window.prompt(`${label}\n\nEnter a passphrase (at least 8 characters):`, '');
-    if (passphrase == null) return null;
-    if (passphrase.length < 8) {
-      setSaveStatus('Passphrase must be at least 8 characters.');
-      return null;
+    setPassphraseLabel(label);
+    setPassphraseValue('');
+    setPassphraseError('');
+    setPassphraseOpen(true);
+    return new Promise((resolve) => {
+      passphraseResolveRef.current = resolve;
+    });
+  };
+
+  const closePassphraseDialog = (value) => {
+    setPassphraseOpen(false);
+    setPassphraseValue('');
+    setPassphraseError('');
+    const resolve = passphraseResolveRef.current;
+    passphraseResolveRef.current = null;
+    if (resolve) resolve(value);
+  };
+
+  const handlePassphraseConfirm = () => {
+    if (passphraseValue.length < 8) {
+      setPassphraseError('Passphrase must be at least 8 characters.');
+      return;
     }
-    return passphrase;
+    closePassphraseDialog(passphraseValue);
   };
 
   const handleExportSave = async (targetMode) => {
     if (!onExportSave || saveBusy) return;
-    const passphrase = askPassphrase(`Export ${targetMode} save`);
+    const passphrase = await askPassphrase(`Export ${targetMode} save`);
     if (!passphrase) return;
 
     setSaveBusy(true);
@@ -304,7 +333,7 @@ export default function Settings({ onClose, mode = 'sandbox', onModeChange, onRe
     e.target.value = '';
     if (!file || !onImportSave || saveBusy) return;
 
-    const passphrase = askPassphrase('Import save file');
+    const passphrase = await askPassphrase('Import save file');
     if (!passphrase) return;
 
     setSaveBusy(true);
@@ -449,6 +478,31 @@ export default function Settings({ onClose, mode = 'sandbox', onModeChange, onRe
             </div>
           </section>
         </div>
+
+        {passphraseOpen && (
+          <div className="settings-passphrase-overlay" onClick={() => closePassphraseDialog(null)}>
+            <div className="settings-passphrase-modal" onClick={(e) => e.stopPropagation()}>
+              <h3 className="settings-passphrase-title">{passphraseLabel}</h3>
+              <p className="settings-toggle-desc">Enter your save passphrase to continue.</p>
+              <input
+                className="settings-passphrase-input"
+                type="password"
+                value={passphraseValue}
+                onChange={(e) => setPassphraseValue(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') handlePassphraseConfirm();
+                  if (e.key === 'Escape') closePassphraseDialog(null);
+                }}
+                autoFocus
+              />
+              {passphraseError && <p className="settings-passphrase-error">{passphraseError}</p>}
+              <div className="settings-passphrase-actions">
+                <button className="btn-reset btn-reset--cancel" onClick={() => closePassphraseDialog(null)}>Cancel</button>
+                <button className="btn-reset btn-reset--save-import" onClick={handlePassphraseConfirm}>Continue</button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
