@@ -12,6 +12,14 @@ import { cacheClearAll } from './services/cache.js';
 import { SETS } from './services/sets.js';
 import { PACK_PRICES, getSellPrice, STARTING_BALANCE, BOOSTER_BOX_SIZE, BOOSTER_BOX_MULTIPLIER } from './services/economy.js';
 import { ACHIEVEMENT_SETS, computeProgress, getAchievementReward } from './services/achievements.js';
+import {
+  SANDBOX_DIFFICULTIES,
+  ECONOMY_DIFFICULTIES,
+  DEFAULT_DIFFICULTY_BY_MODE,
+  DIFFICULTY_PROFILES_KEY,
+  normalizeDifficultyProfiles,
+  getEconomyDifficultyChangeCost,
+} from './services/difficulty.js';
 import { getAllStats, resetStats, recordSetCompletion } from './services/stats.js';
 import { encryptSavePayload, decryptSavePayload, downloadSaveObject, readTextFile } from './services/saveTransfer.js';
 import Settings from './components/Settings.jsx';
@@ -59,6 +67,16 @@ function loadClaimedAchievements(mode) {
     // ignore
   }
   return new Set();
+}
+
+function loadDifficultyProfiles() {
+  try {
+    const raw = localStorage.getItem(DIFFICULTY_PROFILES_KEY);
+    if (!raw) return normalizeDifficultyProfiles(null);
+    return normalizeDifficultyProfiles(JSON.parse(raw));
+  } catch {
+    return normalizeDifficultyProfiles(null);
+  }
 }
 
 function isSpecialExpansion(set) {
@@ -285,7 +303,12 @@ export default function App() {
   const [mode, setMode] = useState(() => {
     try { return localStorage.getItem('pkmon_mode') ?? 'sandbox'; } catch { return 'sandbox'; }
   });
+  const [difficultyProfiles, setDifficultyProfiles] = useState(loadDifficultyProfiles);
   const economyMode = mode === 'economy';
+  const sandboxDifficultyId = difficultyProfiles.sandbox;
+  const economyDifficultyId = difficultyProfiles.economy;
+  const sandboxPullWeight = SANDBOX_DIFFICULTIES[sandboxDifficultyId]?.ownedCardWeight ?? null;
+  const economySellMultiplier = ECONOMY_DIFFICULTIES[economyDifficultyId]?.sellMultiplier ?? 1;
   const [ecoOpenedSetIds, setEcoOpenedSetIds] = useState(loadEcoOpenedSetIds);
   const boosterDexMainUnlocked = useMemo(
     () => MAIN_SET_IDS.every((id) => ecoOpenedSetIds.has(id)),
@@ -326,6 +349,10 @@ export default function App() {
   }, []);
 
   useEffect(() => {
+    try { localStorage.setItem(DIFFICULTY_PROFILES_KEY, JSON.stringify(difficultyProfiles)); } catch { /* ignore */ }
+  }, [difficultyProfiles]);
+
+  useEffect(() => {
     if (!economyMode || !isBoosterDexSelected) return;
     if (isBoosterDexMainSelected && boosterDexMainUnlocked) return;
     if (isBoosterDexSpecialSelected && boosterDexSpecialUnlocked) return;
@@ -336,6 +363,43 @@ export default function App() {
   // ── Economy (coins) ──────────────────────────────────────────────────────
   const { coins, spend, earn, setBalance: setCoins, reset: resetCoins } = useEconomy();
   const [showCoinFlip, setShowCoinFlip] = useState(false);
+
+  const changeDifficulty = useCallback((targetMode, nextDifficultyId, options = {}) => {
+    const skipCost = options?.skipCost === true;
+    if (targetMode === 'sandbox') {
+      if (!SANDBOX_DIFFICULTIES[nextDifficultyId]) {
+        return { ok: false, message: 'Invalid sandbox difficulty.' };
+      }
+      if (difficultyProfiles.sandbox === nextDifficultyId) {
+        return { ok: true, cost: 0, message: null };
+      }
+      setDifficultyProfiles((prev) => ({ ...prev, sandbox: nextDifficultyId }));
+      return { ok: true, cost: 0, message: null };
+    }
+
+    if (targetMode === 'economy') {
+      if (!ECONOMY_DIFFICULTIES[nextDifficultyId]) {
+        return { ok: false, message: 'Invalid economy difficulty.' };
+      }
+      if (difficultyProfiles.economy === nextDifficultyId) {
+        return { ok: true, cost: 0, message: null };
+      }
+
+      const cost = (!skipCost && mode === 'economy')
+        ? getEconomyDifficultyChangeCost(difficultyProfiles.economy, nextDifficultyId)
+        : 0;
+
+      if (cost > coins) {
+        return { ok: false, message: `Need ${cost.toLocaleString()} coins to switch to an easier difficulty.` };
+      }
+
+      if (cost > 0) spend(cost);
+      setDifficultyProfiles((prev) => ({ ...prev, economy: nextDifficultyId }));
+      return { ok: true, cost, message: null };
+    }
+
+    return { ok: false, message: 'Invalid mode.' };
+  }, [coins, difficultyProfiles.economy, difficultyProfiles.sandbox, mode, spend]);
 
   // Free pack tokens per set: { [setId]: count }
   const [freePacks, setFreePacks] = useState(() => {
@@ -632,6 +696,9 @@ export default function App() {
       favourites: parseJson(favouritesKey, []),
       claimedAchievements: parseJson(claimedKey, []),
       stats: parseJson(statsKey, {}),
+      difficulty: targetMode === 'economy'
+        ? (difficultyProfiles.economy ?? DEFAULT_DIFFICULTY_BY_MODE.economy)
+        : (difficultyProfiles.sandbox ?? DEFAULT_DIFFICULTY_BY_MODE.sandbox),
     };
 
     if (targetMode === 'economy') {
@@ -647,7 +714,7 @@ export default function App() {
     const encrypted = await encryptSavePayload({ mode: targetMode, data }, passphrase);
     const stamp = new Date().toISOString().replace(/[:.]/g, '-');
     downloadSaveObject(encrypted, `boosterdex-${targetMode}-save-${stamp}.pkmonsave`);
-  }, []);
+  }, [difficultyProfiles.economy, difficultyProfiles.sandbox]);
 
   const importSave = useCallback(async (file, passphrase) => {
     const fileText = await readTextFile(file);
@@ -664,6 +731,13 @@ export default function App() {
     writeJson(getFavouritesKey(targetMode), data.favourites, []);
     writeJson(getClaimedAchievementsKey(targetMode), data.claimedAchievements, []);
     writeJson(getStatsKey(targetMode), data.stats, {});
+
+    if (targetMode === 'economy' && ECONOMY_DIFFICULTIES[data.difficulty]) {
+      setDifficultyProfiles((prev) => ({ ...prev, economy: data.difficulty }));
+    }
+    if (targetMode === 'sandbox' && SANDBOX_DIFFICULTIES[data.difficulty]) {
+      setDifficultyProfiles((prev) => ({ ...prev, sandbox: data.difficulty }));
+    }
 
     if (targetMode === 'economy') {
       const coinsValue = Number(data.coins);
@@ -686,11 +760,14 @@ export default function App() {
     try { return !localStorage.getItem('pkmon_tutorial_done'); } catch { return true; }
   });
 
-  const handleTutorialDone = useCallback((chosenMode) => {
+  const handleTutorialDone = useCallback((chosenMode, chosenDifficulty) => {
     setShowTutorial(false);
     if (chosenMode) handleModeChange(chosenMode);
+    if (chosenMode && chosenDifficulty) {
+      changeDifficulty(chosenMode, chosenDifficulty, { skipCost: true });
+    }
     try { localStorage.setItem('pkmon_tutorial_done', '1'); } catch { /* ignore */ }
-  }, [handleModeChange]);
+  }, [changeDifficulty, handleModeChange]);
 
   const handleReopenTutorial = useCallback(() => {
     setShowTutorial(true);
@@ -1042,9 +1119,10 @@ export default function App() {
                 )}
                 onSellCard={(card) => {
                   const sold = sellCard(card.baseCardId ?? card.id, card.grade ? { grade: card.grade } : undefined);
-                  if (sold) earn(getSellPrice(card, getEffectiveSellSetId(card)));
+                  if (sold) earn(getSellPrice(card, getEffectiveSellSetId(card), economySellMultiplier));
                 }}
-                getCardSellPrice={(card) => getSellPrice(card, getEffectiveSellSetId(card))}
+                getCardSellPrice={(card) => getSellPrice(card, getEffectiveSellSetId(card), economySellMultiplier)}
+                duplicatePullWeight={!economyMode ? sandboxPullWeight : null}
                 canCoinFlip={canCoinFlip}
                 onCoinFlip={() => setShowCoinFlip(true)}
                 freePacks={freePacks[selectedSetId] ?? 0}
@@ -1069,9 +1147,9 @@ export default function App() {
             onGradeCard={(card, forcedGrade) => gradeCard(card.baseCardId ?? card.id, forcedGrade)}
             onSellCard={(card) => {
               const sold = sellCard(card.baseCardId ?? card.id, card.grade ? { grade: card.grade } : undefined);
-              if (sold) earn(getSellPrice(card, card.setId ?? 'base1'));
+              if (sold) earn(getSellPrice(card, card.setId ?? 'base1', economySellMultiplier));
             }}
-            getCardSellPrice={(card) => getSellPrice(card, card.setId ?? 'base1')}
+            getCardSellPrice={(card) => getSellPrice(card, card.setId ?? 'base1', economySellMultiplier)}
           />
         )}
 
@@ -1102,6 +1180,9 @@ export default function App() {
         onRecheckAchievements={recheckAchievements}
         onExportSave={exportSave}
         onImportSave={importSave}
+        coins={coins}
+        difficultyProfiles={difficultyProfiles}
+        onChangeDifficulty={changeDifficulty}
       />
     )}
     {showCoinFlip && (

@@ -702,3 +702,58 @@
   text-align: center;
   padding-top: 2px;
 }
+
+.tut-mode-difficulty {
+  margin-top: 4px;
+  border-top: 1px dashed #30363d;
+  padding-top: 8px;
+}
+
+.tut-mode-difficulty__title {
+  display: block;
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: #8b949e;
+  letter-spacing: 0.04em;
+  margin-bottom: 6px;
+}
+
+.tut-mode-difficulty__options {
+  display: grid;
+  gap: 6px;
+}
+
+.tut-mode-difficulty__option {
+  border: 1px solid #30363d;
+  border-radius: 8px;
+  background: #0d1117;
+  color: #c9d1d9;
+  text-align: left;
+  padding: 8px 10px;
+  display: grid;
+  gap: 2px;
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s;
+}
+
+.tut-mode-difficulty__option:hover {
+  border-color: #58a6ff;
+  background: #121822;
+}
+
+.tut-mode-difficulty__option--active {
+  border-color: #f59e0b;
+  background: rgba(245, 158, 11, 0.08);
+}
+
+.tut-mode-difficulty__name {
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: #f0f6fc;
+}
+
+.tut-mode-difficulty__desc {
+  font-size: 0.72rem;
+  color: #8b949e;
+  line-height: 1.35;
+}

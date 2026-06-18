@@ -70,13 +70,14 @@ const REVERSE_HOLO_SELL_MULTIPLIER = 1.25;  // reverse holo treatment
  * @param {object} card  - card object with `rarity`, `holo`, and `reverseHolo` fields
  * @param {string} setId - the set the card belongs to
  */
-export function getSellPrice(card, setId) {
+export function getSellPrice(card, setId, sellMultiplier = 1) {
   const packPrice  = PACK_PRICES[setId] ?? PACK_PRICES['base1'];
   const baseFactor = RARITY_SELL_FACTOR[card.rarity] ?? 0.06;
   let factor = baseFactor;
   if (card.holo)             factor = baseFactor * HOLO_SELL_MULTIPLIER;
   else if (card.reverseHolo) factor = baseFactor * REVERSE_HOLO_SELL_MULTIPLIER;
   factor *= getGradeMultiplier(card.grade);
+  factor *= Math.max(0.1, Number.isFinite(sellMultiplier) ? sellMultiplier : 1);
   // Math.ceil ensures that 6 commons + 3 uncommons + 1 non-holo rare always
   // sums to at least the pack price (verified across every set in SET_ORDER).
   return Math.max(1, Math.ceil(packPrice * factor));

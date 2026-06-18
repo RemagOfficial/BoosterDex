@@ -1,7 +1,20 @@
 import { useRef, useState } from 'react';
 import './Settings.css';
+import {
+  SANDBOX_DIFFICULTIES,
+  ECONOMY_DIFFICULTIES,
+  getEconomyDifficultyChangeCost,
+} from '../services/difficulty.js';
 
 const CHANGELOG = [
+  {
+    version: '1.16.0',
+    date: '2026-06-18',
+    entries: [
+      'Fixed incorrect achievement goals',
+      'Added difficulty settings per mode: Sandbox (Standard/Collector) and Economy (Cheaper/Regular/Hard), including paid switches when moving to easier Economy difficulties',
+    ],
+  },
   {
     version: '1.15.5',
     date: '2026-06-14',
@@ -227,7 +240,18 @@ const CHANGELOG = [
   },
 ];
 
-export default function Settings({ onClose, mode = 'sandbox', onModeChange, onResetProgress, onRecheckAchievements, onExportSave, onImportSave }) {
+export default function Settings({
+  onClose,
+  mode = 'sandbox',
+  onModeChange,
+  onResetProgress,
+  onRecheckAchievements,
+  onExportSave,
+  onImportSave,
+  coins = 0,
+  difficultyProfiles = { sandbox: 'standard', economy: 'regular' },
+  onChangeDifficulty,
+}) {
   const [gyroDisabled, setGyroDisabled] = useState(
     () => localStorage.getItem('pkmon_gyro_disabled') === 'true'
   );
@@ -240,8 +264,10 @@ export default function Settings({ onClose, mode = 'sandbox', onModeChange, onRe
   const [passphraseLabel, setPassphraseLabel] = useState('');
   const [passphraseValue, setPassphraseValue] = useState('');
   const [passphraseError, setPassphraseError] = useState('');
+  const [difficultyStatus, setDifficultyStatus] = useState('');
   const importInputRef = useRef(null);
   const passphraseResolveRef = useRef(null);
+  const activeDifficultyId = mode === 'economy' ? difficultyProfiles.economy : difficultyProfiles.sandbox;
 
   const toggleGyro = () => {
     const next = !gyroDisabled;
@@ -349,6 +375,20 @@ export default function Settings({ onClose, mode = 'sandbox', onModeChange, onRe
     }
   };
 
+  const handleDifficultyChange = (nextDifficultyId) => {
+    if (!onChangeDifficulty) return;
+    const result = onChangeDifficulty(mode, nextDifficultyId);
+    if (!result?.ok) {
+      setDifficultyStatus(result?.message ?? 'Could not change difficulty.');
+      return;
+    }
+    if (mode === 'economy' && (result.cost ?? 0) > 0) {
+      setDifficultyStatus(`Difficulty updated. ${result.cost.toLocaleString()} coins spent.`);
+      return;
+    }
+    setDifficultyStatus('Difficulty updated.');
+  };
+
   return (
     <div className="settings-overlay" onClick={onClose}>
       <div className="settings-modal" onClick={(e) => e.stopPropagation()}>
@@ -387,6 +427,48 @@ export default function Settings({ onClose, mode = 'sandbox', onModeChange, onRe
                 />
                 <span className="settings-toggle-track" />
               </label>
+            </div>
+
+            <div className="settings-difficulty">
+              <span className="settings-toggle-label">{mode === 'economy' ? 'Economy Difficulty' : 'Sandbox Difficulty'}</span>
+              <p className="settings-toggle-desc">
+                {mode === 'economy'
+                  ? 'Switching to easier economy difficulties costs coins. Moving to harder difficulties is free.'
+                  : 'Collector reduces duplicate pulls while opening packs.'}
+              </p>
+              <div className="settings-difficulty-options">
+                {mode === 'economy'
+                  ? Object.values(ECONOMY_DIFFICULTIES).map((difficulty) => {
+                      const cost = getEconomyDifficultyChangeCost(difficultyProfiles.economy, difficulty.id);
+                      const disabled = activeDifficultyId === difficulty.id || (cost > 0 && coins < cost);
+                      return (
+                        <button
+                          key={difficulty.id}
+                          type="button"
+                          className={`settings-difficulty-option${activeDifficultyId === difficulty.id ? ' settings-difficulty-option--active' : ''}`}
+                          onClick={() => handleDifficultyChange(difficulty.id)}
+                          disabled={disabled}
+                        >
+                          <span className="settings-difficulty-option__label">{difficulty.label}</span>
+                          <span className="settings-difficulty-option__desc">{difficulty.description}</span>
+                          {cost > 0 && <span className="settings-difficulty-option__cost">Cost: {cost.toLocaleString()} coins</span>}
+                        </button>
+                      );
+                    })
+                  : Object.values(SANDBOX_DIFFICULTIES).map((difficulty) => (
+                      <button
+                        key={difficulty.id}
+                        type="button"
+                        className={`settings-difficulty-option${activeDifficultyId === difficulty.id ? ' settings-difficulty-option--active' : ''}`}
+                        onClick={() => handleDifficultyChange(difficulty.id)}
+                        disabled={activeDifficultyId === difficulty.id}
+                      >
+                        <span className="settings-difficulty-option__label">{difficulty.label}</span>
+                        <span className="settings-difficulty-option__desc">{difficulty.description}</span>
+                      </button>
+                    ))}
+              </div>
+              {difficultyStatus && <p className="settings-recheck-status">{difficultyStatus}</p>}
             </div>
           </section>
 

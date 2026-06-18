@@ -1,5 +1,10 @@
 import { useState, useRef } from 'react';
 import './Tutorial.css';
+import {
+  SANDBOX_DIFFICULTIES,
+  ECONOMY_DIFFICULTIES,
+  DEFAULT_DIFFICULTY_BY_MODE,
+} from '../services/difficulty.js';
 
 // ── Preview sub-components ─────────────────────────────────────────────────
 
@@ -139,7 +144,19 @@ function ModePickPreview() {
   );
 }
 
-function ModeContent({ selectedMode, setSelectedMode }) {
+function ModeContent({
+  selectedMode,
+  setSelectedMode,
+  selectedSandboxDifficulty,
+  setSelectedSandboxDifficulty,
+  selectedEconomyDifficulty,
+  setSelectedEconomyDifficulty,
+}) {
+  const activeDifficultyId = selectedMode === 'economy' ? selectedEconomyDifficulty : selectedSandboxDifficulty;
+  const activeDifficulties = selectedMode === 'economy'
+    ? Object.values(ECONOMY_DIFFICULTIES)
+    : Object.values(SANDBOX_DIFFICULTIES);
+
   return (
     <div className="tut-mode-picker">
       <button
@@ -167,6 +184,25 @@ function ModeContent({ selectedMode, setSelectedMode }) {
         </div>
         <span className="tut-mode-opt__check" aria-hidden="true">✓</span>
       </button>
+      <div className="tut-mode-difficulty">
+        <span className="tut-mode-difficulty__title">Difficulty</span>
+        <div className="tut-mode-difficulty__options">
+          {activeDifficulties.map((difficulty) => (
+            <button
+              key={difficulty.id}
+              type="button"
+              className={`tut-mode-difficulty__option${activeDifficultyId === difficulty.id ? ' tut-mode-difficulty__option--active' : ''}`}
+              onClick={() => {
+                if (selectedMode === 'economy') setSelectedEconomyDifficulty(difficulty.id);
+                else setSelectedSandboxDifficulty(difficulty.id);
+              }}
+            >
+              <span className="tut-mode-difficulty__name">{difficulty.label}</span>
+              <span className="tut-mode-difficulty__desc">{difficulty.description}</span>
+            </button>
+          ))}
+        </div>
+      </div>
       <p className="tut-mode-note">You can switch modes any time from the settings menu.</p>
     </div>
   );
@@ -218,6 +254,8 @@ const SLIDES = [
 export default function Tutorial({ onDone }) {
   const [slide, setSlide] = useState(0);
   const [selectedMode, setSelectedMode] = useState('sandbox');
+  const [selectedSandboxDifficulty, setSelectedSandboxDifficulty] = useState(DEFAULT_DIFFICULTY_BY_MODE.sandbox);
+  const [selectedEconomyDifficulty, setSelectedEconomyDifficulty] = useState(DEFAULT_DIFFICULTY_BY_MODE.economy);
   const dirRef = useRef(1);
 
   const go = (newIdx) => {
@@ -227,8 +265,9 @@ export default function Tutorial({ onDone }) {
   };
 
   const next = () => {
+    const selectedDifficulty = selectedMode === 'economy' ? selectedEconomyDifficulty : selectedSandboxDifficulty;
     if (slide < SLIDES.length - 1) go(slide + 1);
-    else onDone(selectedMode);
+    else onDone(selectedMode, selectedDifficulty);
   };
 
   const prev = () => {
@@ -240,7 +279,7 @@ export default function Tutorial({ onDone }) {
   return (
     <div className="tut-overlay">
       <div className="tut-modal">
-        <button className="tut-skip" onClick={() => onDone(selectedMode)}>Skip</button>
+        <button className="tut-skip" onClick={() => onDone(selectedMode, selectedMode === 'economy' ? selectedEconomyDifficulty : selectedSandboxDifficulty)}>Skip</button>
 
         <div
           key={slide}
@@ -252,7 +291,16 @@ export default function Tutorial({ onDone }) {
           <div className="tut-text">
             <h2 className="tut-title">{title}</h2>
             {Content
-              ? <Content selectedMode={selectedMode} setSelectedMode={setSelectedMode} />
+              ? (
+                <Content
+                  selectedMode={selectedMode}
+                  setSelectedMode={setSelectedMode}
+                  selectedSandboxDifficulty={selectedSandboxDifficulty}
+                  setSelectedSandboxDifficulty={setSelectedSandboxDifficulty}
+                  selectedEconomyDifficulty={selectedEconomyDifficulty}
+                  setSelectedEconomyDifficulty={setSelectedEconomyDifficulty}
+                />
+              )
               : <p className="tut-body">{body}</p>
             }
           </div>

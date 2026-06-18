@@ -53,6 +53,7 @@ export default function PackOpener({
     onBuyBox,
   // Dev mode
   forcedPack = null, onPackUsed,
+  duplicatePullWeight = null,
   // Pity system (economy mode)
   pityCount = 0, onPityUpdate,
 }) {
@@ -145,8 +146,17 @@ export default function PackOpener({
     clearTimers();
     preOpenCollectionRef.current = new Set(collectionRef.current.map((c) => c.id));
     const isPityPack = economyMode && !forcedPack && pityCount >= PITY_THRESHOLD;
-      const ownedIds = (free && economyMode) ? preOpenCollectionRef.current : null;
-      const drawn = forcedPack ?? (isPityPack ? openPityPack(cards, setId, ownedIds) : openPack(cards, setId, ownedIds));
+    let ownedIds = null;
+    let ownedWeight = 0.8;
+    if (free && economyMode) {
+      ownedIds = preOpenCollectionRef.current;
+    }
+    if (typeof duplicatePullWeight === 'number' && duplicatePullWeight > 0 && duplicatePullWeight < 1) {
+      ownedIds = preOpenCollectionRef.current;
+      ownedWeight = duplicatePullWeight;
+    }
+    const drawOptions = ownedIds ? { ownedIds, ownedWeight } : null;
+    const drawn = forcedPack ?? (isPityPack ? openPityPack(cards, setId, drawOptions) : openPack(cards, setId, drawOptions));
     if (forcedPack) onPackUsed?.();
     // Update pity counter: hit = holo or any premium rarity in the drawn pack
     if (economyMode && !forcedPack) {
@@ -162,7 +172,7 @@ export default function PackOpener({
     setCardState('facedown');
     setPhase('opening');
     openingTimerRef.current = setTimeout(() => setPhase('revealing'), 700);
-  }, [cards, clearTimers, economyMode, onBuyPack, onUseFreePack, pityCount, onPityUpdate]);
+  }, [cards, clearTimers, duplicatePullWeight, economyMode, forcedPack, onBuyPack, onPackUsed, onPityUpdate, onUseFreePack, pityCount, setId]);
 
   const handleSkipToSummary = useCallback(() => {
     clearTimers();

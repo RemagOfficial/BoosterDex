@@ -18,9 +18,10 @@ function pickRandom(pool, count) {
  * Cards already in ownedIds get 80% weight so free packs favour new cards.
  * Falls back to uniform random when ownedIds is null/empty.
  */
-function pickWeighted(pool, count, ownedIds) {
+function pickWeighted(pool, count, ownedIds, ownedWeight = 0.8) {
   if (!ownedIds || ownedIds.size === 0 || pool.length === 0) return pickRandom(pool, count);
-  const items = pool.map((card) => ({ card, weight: ownedIds.has(card.id) ? 0.8 : 1.0 }));
+  const clampedOwnedWeight = Math.min(1, Math.max(0.05, ownedWeight));
+  const items = pool.map((card) => ({ card, weight: ownedIds.has(card.id) ? clampedOwnedWeight : 1.0 }));
   const result = [];
   for (let i = 0; i < count && items.length > 0; i++) {
     const total = items.reduce((s, w) => s + w.weight, 0);
@@ -94,7 +95,9 @@ function rollWithMultiplier(probability, multiplier) {
   return Math.random() < (probability * multiplier);
 }
 
-export function openPack(allCards, setId = null, ownedIds = null) {
+export function openPack(allCards, setId = null, options = null) {
+  const ownedIds = options instanceof Set ? options : options?.ownedIds ?? null;
+  const ownedWeight = options instanceof Set ? 0.8 : options?.ownedWeight ?? 0.8;
   const packSetId = getPackSetId(allCards, setId);
   const cooldownState = getCooldownState(packSetId, !hasPlainRares(allCards));
   const cooldownWasActive = cooldownState?.packsLeft > 0;
@@ -116,7 +119,7 @@ export function openPack(allCards, setId = null, ownedIds = null) {
   // replacing one common slot so the pack stays at 10 cards total.
   const hasRH = reverseHolos.length > 0;
   // pick: weighted for free packs (20% less likely to pull already-owned cards)
-  const pick  = (pool, n) => pickWeighted(pool, n, ownedIds);
+  const pick  = (pool, n) => pickWeighted(pool, n, ownedIds, ownedWeight);
   let rhSlot  = hasRH ? pick(reverseHolos, 1) : [];
 
   // Radiant cards are reverse-slot hits and use shiny-tier odds.
@@ -179,7 +182,9 @@ export function openPack(allCards, setId = null, ownedIds = null) {
  * probabilities so they can still appear (and because holos are now the floor
  * rather than one option among rares, effective pull rates feel higher).
  */
-export function openPityPack(allCards, setId = null, ownedIds = null) {
+export function openPityPack(allCards, setId = null, options = null) {
+  const ownedIds = options instanceof Set ? options : options?.ownedIds ?? null;
+  const ownedWeight = options instanceof Set ? 0.8 : options?.ownedWeight ?? 0.8;
   const packSetId = getPackSetId(allCards, setId);
   const cooldownState = getCooldownState(packSetId, !hasPlainRares(allCards));
   const cooldownWasActive = cooldownState?.packsLeft > 0;
@@ -198,7 +203,7 @@ export function openPityPack(allCards, setId = null, ownedIds = null) {
   const reverseHolos = allCards.filter((c) => c.reverseHolo === true);
 
   const hasRH = reverseHolos.length > 0;
-  const pick  = (pool, n) => pickWeighted(pool, n, ownedIds);
+  const pick  = (pool, n) => pickWeighted(pool, n, ownedIds, ownedWeight);
   let rhSlot  = hasRH ? pick(reverseHolos, 1) : [];
   if (radiantCards.length > 0 && Math.random() < 1 / 90) {
     rhSlot = pick(radiantCards, 1);

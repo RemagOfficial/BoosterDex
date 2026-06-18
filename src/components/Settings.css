@@ -114,6 +114,65 @@
   line-height: 1.4;
 }
 
+.settings-difficulty {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px dashed rgba(71, 85, 105, 0.45);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.settings-difficulty-options {
+  display: grid;
+  gap: 8px;
+}
+
+.settings-difficulty-option {
+  border: 1px solid #334155;
+  background: #0f172a;
+  color: #cbd5e1;
+  border-radius: 8px;
+  padding: 8px 10px;
+  text-align: left;
+  cursor: pointer;
+  display: grid;
+  gap: 2px;
+  transition: border-color 0.15s, background 0.15s;
+}
+
+.settings-difficulty-option:hover:not(:disabled) {
+  border-color: #38bdf8;
+  background: #102032;
+}
+
+.settings-difficulty-option:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.settings-difficulty-option--active {
+  border-color: #f59e0b;
+  background: rgba(245, 158, 11, 0.1);
+}
+
+.settings-difficulty-option__label {
+  font-size: 0.8rem;
+  font-weight: 700;
+}
+
+.settings-difficulty-option__desc {
+  font-size: 0.74rem;
+  color: #94a3b8;
+  line-height: 1.35;
+}
+
+.settings-difficulty-option__cost {
+  margin-top: 2px;
+  font-size: 0.72rem;
+  color: #fbbf24;
+}
+
 /* ── Reset progress ─────────────────────────────────────────── */
 .settings-section--danger .settings-section__title {
   color: #f87171;
