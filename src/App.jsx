@@ -85,6 +85,7 @@ function isSpecialExpansion(set) {
 
 const MAIN_SET_IDS = SETS.filter((set) => !isSpecialExpansion(set)).map((set) => set.id);
 const SPECIAL_SET_IDS = SETS.filter((set) => isSpecialExpansion(set)).map((set) => set.id);
+const TOTAL_COLLECTION_PROGRESS_CARDS = SETS.reduce((sum, set) => sum + (Number(set.totalCards) || 0), 0);
 
 const BOOSTERDEX_MAIN_PACK_PRICE = (() => {
   const mainPrices = MAIN_SET_IDS.map((id) => PACK_PRICES[id] ?? PACK_PRICES.base1).filter(Boolean);
@@ -309,6 +310,7 @@ export default function App() {
   const economyDifficultyId = difficultyProfiles.economy;
   const sandboxPullWeight = SANDBOX_DIFFICULTIES[sandboxDifficultyId]?.ownedCardWeight ?? null;
   const economySellMultiplier = ECONOMY_DIFFICULTIES[economyDifficultyId]?.sellMultiplier ?? 1;
+  const [devDifficultyCostMultiplierOverride, setDevDifficultyCostMultiplierOverride] = useState(null);
   const [ecoOpenedSetIds, setEcoOpenedSetIds] = useState(loadEcoOpenedSetIds);
   const boosterDexMainUnlocked = useMemo(
     () => MAIN_SET_IDS.every((id) => ecoOpenedSetIds.has(id)),
@@ -331,6 +333,11 @@ export default function App() {
   const sandboxCol = useCollection('pokemon_collection');
   const economyCol = useCollection('pkmon_eco_collection');
   const { collection, addCards, sellCard, gradeCard, devSetCardGrade, resetCollection } = economyMode ? economyCol : sandboxCol;
+  const economyDifficultyCostContext = useMemo(() => ({
+    ownedCards: economyCol.collection.length,
+    totalCards: TOTAL_COLLECTION_PROGRESS_CARDS,
+    multiplierOverride: devDifficultyCostMultiplierOverride,
+  }), [devDifficultyCostMultiplierOverride, economyCol.collection.length]);
 
   // All cards from every loaded set combined — fed to Achievements.
   // We also include collection cards for sets that haven't been loaded yet so
@@ -386,7 +393,7 @@ export default function App() {
       }
 
       const cost = (!skipCost && mode === 'economy')
-        ? getEconomyDifficultyChangeCost(difficultyProfiles.economy, nextDifficultyId)
+        ? getEconomyDifficultyChangeCost(difficultyProfiles.economy, nextDifficultyId, economyDifficultyCostContext)
         : 0;
 
       if (cost > coins) {
@@ -399,7 +406,7 @@ export default function App() {
     }
 
     return { ok: false, message: 'Invalid mode.' };
-  }, [coins, difficultyProfiles.economy, difficultyProfiles.sandbox, mode, spend]);
+  }, [coins, difficultyProfiles.economy, difficultyProfiles.sandbox, economyDifficultyCostContext, mode, spend]);
 
   // Free pack tokens per set: { [setId]: count }
   const [freePacks, setFreePacks] = useState(() => {
@@ -1182,6 +1189,7 @@ export default function App() {
         onImportSave={importSave}
         coins={coins}
         difficultyProfiles={difficultyProfiles}
+        economyDifficultyCostContext={economyDifficultyCostContext}
         onChangeDifficulty={changeDifficulty}
       />
     )}
@@ -1233,6 +1241,8 @@ export default function App() {
         onReopenTutorial={handleReopenTutorial}
         collection={collection}
         onSetCollectionCardGrade={devSetCardGrade}
+        difficultyCostMultiplierOverride={devDifficultyCostMultiplierOverride}
+        onSetDifficultyCostMultiplierOverride={setDevDifficultyCostMultiplierOverride}
         onMaxPity={() => {
           if (!selectedSetId) return;
           setPityCounters((prev) => {

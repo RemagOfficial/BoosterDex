@@ -27,6 +27,8 @@ export default function DevPanel({
   onReopenTutorial,
   collection,
   onSetCollectionCardGrade,
+  difficultyCostMultiplierOverride = null,
+  onSetDifficultyCostMultiplierOverride,
   onMaxPity,
 }) {
   const [tab, setTab]           = useState('toasts');
@@ -37,6 +39,12 @@ export default function DevPanel({
   const [gradeValue, setGradeValue] = useState(10);
   const [gradeStatus, setGradeStatus] = useState('');
   const [coinDraft, setCoinDraft] = useState(coins);
+  const [multiplierDraft, setMultiplierDraft] = useState(() => {
+    if (Number.isFinite(Number(difficultyCostMultiplierOverride))) {
+      return String(Math.max(1, Math.floor(Number(difficultyCostMultiplierOverride))));
+    }
+    return '1';
+  });
 
   // Sort and filter cards for the picker
   const filteredCards = useMemo(() => {
@@ -81,6 +89,14 @@ export default function DevPanel({
     setCoinDraft(coins);
   }, [coins]);
 
+  useEffect(() => {
+    if (Number.isFinite(Number(difficultyCostMultiplierOverride))) {
+      setMultiplierDraft(String(Math.max(1, Math.floor(Number(difficultyCostMultiplierOverride)))));
+    } else {
+      setMultiplierDraft('1');
+    }
+  }, [difficultyCostMultiplierOverride]);
+
   const selectedGradeCard = useMemo(
     () => (collection ?? []).find((c) => c.id === gradeCardId) ?? null,
     [collection, gradeCardId],
@@ -117,6 +133,13 @@ export default function DevPanel({
     if (!gradeCardId || !onSetCollectionCardGrade) return;
     const ok = onSetCollectionCardGrade(gradeCardId, gradeValue);
     setGradeStatus(ok ? `Applied grade ${gradeValue}.` : 'Could not apply grade.');
+  };
+
+  const applyDifficultyCostMultiplier = () => {
+    if (!onSetDifficultyCostMultiplierOverride) return;
+    const value = Math.max(1, Math.floor(Number(multiplierDraft) || 1));
+    setMultiplierDraft(String(value));
+    onSetDifficultyCostMultiplierOverride(value);
   };
 
   const RARITY_COLORS = {
@@ -265,6 +288,42 @@ export default function DevPanel({
                 🎁 Award {n} free pack{n !== 1 ? 's' : ''}
               </button>
             ))}
+            <div className="dev-divider" />
+            <p className="dev-label">Difficulty Cost Multiplier</p>
+            <p className="dev-hint">Overrides progression scaling for economy difficulty switch price tests.</p>
+            <input
+              className="dev-input"
+              type="number"
+              min="1"
+              step="1"
+              value={multiplierDraft}
+              onChange={(e) => setMultiplierDraft(e.target.value)}
+            />
+            <div className="dev-toast-grid">
+              <button className="dev-btn dev-btn--primary" onClick={applyDifficultyCostMultiplier}>
+                Apply Multiplier
+              </button>
+              <button className="dev-btn" onClick={() => onSetDifficultyCostMultiplierOverride?.(null)}>
+                Use Auto Scale
+              </button>
+            </div>
+            <div className="dev-toast-grid">
+              {[1, 3, 5, 10].map((n) => (
+                <button
+                  key={n}
+                  className="dev-btn"
+                  onClick={() => {
+                    setMultiplierDraft(String(n));
+                    onSetDifficultyCostMultiplierOverride?.(n);
+                  }}
+                >
+                  {n}x
+                </button>
+              ))}
+            </div>
+            <p className="dev-hint">
+              Active: {Number.isFinite(Number(difficultyCostMultiplierOverride)) ? `${Math.floor(Number(difficultyCostMultiplierOverride))}x (override)` : 'Auto (progress-based)'}
+            </p>
             <div className="dev-divider" />
             <p className="dev-label">Coins</p>
             <p className="dev-hint">Set the exact balance or apply quick adjustments.</p>

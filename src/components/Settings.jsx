@@ -250,6 +250,7 @@ export default function Settings({
   onImportSave,
   coins = 0,
   difficultyProfiles = { sandbox: 'standard', economy: 'regular' },
+  economyDifficultyCostContext = null,
   onChangeDifficulty,
 }) {
   const [gyroDisabled, setGyroDisabled] = useState(
@@ -439,7 +440,11 @@ export default function Settings({
               <div className="settings-difficulty-options">
                 {mode === 'economy'
                   ? Object.values(ECONOMY_DIFFICULTIES).map((difficulty) => {
-                      const cost = getEconomyDifficultyChangeCost(difficultyProfiles.economy, difficulty.id);
+                      const cost = getEconomyDifficultyChangeCost(
+                        difficultyProfiles.economy,
+                        difficulty.id,
+                        economyDifficultyCostContext,
+                      );
                       const disabled = activeDifficultyId === difficulty.id || (cost > 0 && coins < cost);
                       return (
                         <button

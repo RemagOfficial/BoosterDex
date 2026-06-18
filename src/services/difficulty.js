@@ -46,6 +46,32 @@ export const DIFFICULTY_PROFILES_KEY = 'pkmon_difficulty_profiles';
 
 const EASIER_STEP_COST = 200;
 
+function clamp01(value) {
+  if (!Number.isFinite(value)) return 0;
+  return Math.min(1, Math.max(0, value));
+}
+
+export function getEconomyDifficultyCostMultiplier(progress = null) {
+  const overrideMultiplier = Number(progress?.multiplierOverride);
+  if (Number.isFinite(overrideMultiplier) && overrideMultiplier >= 1) {
+    return Math.floor(overrideMultiplier);
+  }
+
+  const ownedCards = Number(progress?.ownedCards ?? 0);
+  const totalCards = Number(progress?.totalCards ?? 0);
+  if (!Number.isFinite(ownedCards) || ownedCards <= 0 || !Number.isFinite(totalCards) || totalCards <= 0) {
+    return 1;
+  }
+
+  const ratio = clamp01(ownedCards / totalCards);
+  // Aggressive late-game scaling:
+  // - early game stays forgiving via linear growth
+  // - near completion ramps exponentially so easier switches stay expensive
+  const linearMultiplier = 1 + Math.floor(ratio * 20);
+  const endgameMultiplier = Math.max(1, Math.floor(10 ** (Math.pow(ratio, 3) * 9)));
+  return Math.max(linearMultiplier, endgameMultiplier);
+}
+
 export function normalizeDifficultyProfiles(input) {
   const next = {
     sandbox: DEFAULT_DIFFICULTY_BY_MODE.sandbox,
@@ -64,10 +90,12 @@ export function normalizeDifficultyProfiles(input) {
   return next;
 }
 
-export function getEconomyDifficultyChangeCost(currentId, nextId) {
+export function getEconomyDifficultyChangeCost(currentId, nextId, progress = null) {
   const current = ECONOMY_DIFFICULTIES[currentId];
   const next = ECONOMY_DIFFICULTIES[nextId];
   if (!current || !next) return 0;
   if (next.rank >= current.rank) return 0;
-  return (current.rank - next.rank) * EASIER_STEP_COST;
+  const steps = current.rank - next.rank;
+  const progressMultiplier = getEconomyDifficultyCostMultiplier(progress);
+  return steps * EASIER_STEP_COST * progressMultiplier;
 }
