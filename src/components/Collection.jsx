@@ -40,13 +40,15 @@ const sortScore = (card) => {
   if (card.rarity === 'Rare LV.X') return 2;
   if (card.rarity === 'Rare BREAK') return 3;
   if (card.holo && card.rarity === 'Rare') return 4;
-  if (card.reverseHolo && card.rarity === 'Rare') return 5;
-  if (!card.holo && !card.reverseHolo && card.rarity === 'Rare') return 6;
-  if (card.reverseHolo) return 7;
-  if (card.holo) return 8;
+  if (!card.holo && !card.reverseHolo && card.rarity === 'Rare') return 5;
+  if (card.holo) return 6;
+  if (card.reverseHolo && card.rarity === 'Rare') return 7;
+  if (card.reverseHolo) return 8;
   if (card.rarity === 'Uncommon') return 9;
   if (card.rarity === 'Common') return 10;
-  return 11;
+  // Legendary Collection reverse cards sort last (after all other cards)
+  if (card.reverseHolo && card.setId === 'lc') return 11;
+  return 12;
 };
 
 const gradedCount = (card) => {
@@ -656,7 +658,7 @@ export default function Collection({
                   </div>
                   <div className="coll-set-card__meta">
                     <span className={`coll-set-card__count${complete ? ' coll-set-card__count--done' : ''}`}>
-                      {complete ? '✓ ' : ''}{ownedTotalBySet[set.id] ?? 0} / {total}
+                      {complete ? '✓ ' : ''}{(ownedTotalBySet[set.id] ?? 0).toLocaleString()} / {total.toLocaleString()}
                     </span>
                   </div>
                   <span className="coll-set-card__arrow">&#8250;</span>
@@ -820,9 +822,9 @@ export default function Collection({
             }}>‹ Back</button>
 
             <div className="collection__stats">
-              <span><strong>{activeSetCards.length}</strong><em> unique</em></span>
+              <span><strong>{activeSetCards.length.toLocaleString()}</strong><em> unique</em></span>
               <span className="collection__divider">•</span>
-              <span><strong>{totalCards}</strong><em> total</em></span>
+              <span><strong>{totalCards.toLocaleString()}</strong><em> total</em></span>
               {subsetLabel && (
                 <>
                   <span className="collection__divider">•</span>
@@ -832,7 +834,7 @@ export default function Collection({
               {!isFavouritesView && (
                 <>
                   <span className="collection__divider">•</span>
-                  <span><strong>{officialOwnedCount} / {checklistOfficialCount}</strong><em> set progress</em></span>
+                  <span><strong>{officialOwnedCount.toLocaleString()} / {checklistOfficialCount.toLocaleString()}</strong><em> set progress</em></span>
                 </>
               )}
             </div>

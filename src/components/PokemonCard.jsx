@@ -37,6 +37,7 @@ export default function PokemonCard({ card, size = 'normal', showCount = false, 
   const imageUrl = getCardImageUrl(card, 'high');
   const isHolo = card.holo === true;
   const isReverseHolo = card.reverseHolo === true;
+  const isLcReverse = card.setId === 'lc' && card.reverseHolo === true;
   const isSecretRare = card.rarity === 'Secret Rare';
   const hasGrade = typeof card.grade === 'number';
   const isGraded = hasGrade && showGraded;
@@ -49,7 +50,7 @@ export default function PokemonCard({ card, size = 'normal', showCount = false, 
 
   return (
     <div
-      className={`pcard size-${size}${(isHolo || isReverseHolo) ? ' pcard--holo' : ''}${isSecretRare ? ' pcard--secret-rare' : ''}${isGraded ? ' pcard--graded' : ''}${onClick ? ' pcard--clickable' : ''}${unowned ? ' pcard--unowned' : ''}`}
+      className={`pcard size-${size}${(isHolo || isReverseHolo) && !isLcReverse ? ' pcard--holo' : ''}${isLcReverse ? ' pcard--lc-reverse' : ''}${isSecretRare ? ' pcard--secret-rare' : ''}${isGraded ? ' pcard--graded' : ''}${onClick ? ' pcard--clickable' : ''}${unowned ? ' pcard--unowned' : ''}`}
       onClick={onClick ? () => onClick(card) : undefined}
     >
       {isGraded && <div className="pcard__grade-tag">GRADE {card.grade}</div>}
@@ -60,7 +61,8 @@ export default function PokemonCard({ card, size = 'normal', showCount = false, 
         loading="lazy"
         draggable="false"
       />
-      {(isHolo || isReverseHolo) && !unowned && <div className="pcard__holo-overlay" />}
+      {(isHolo || isReverseHolo) && !isLcReverse && !unowned && <div className="pcard__holo-overlay" />}
+      {isLcReverse && !unowned && <div className="pcard__lc-reverse-overlay" />}
       <div className="pcard__rarity">
         {isMegaEx && <span style={{ color: MEGA_SUFFIX.color }}>{MEGA_SUFFIX.label} </span>}
         {isVstar

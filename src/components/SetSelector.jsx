@@ -152,9 +152,8 @@ export default function SetSelector({
         const owned = collection.filter((c) => (
           (c.setId ?? 'base1') === s.id
           && !c.reverseHolo
-          && isOfficialNumberedCard(c, s)
         )).length;
-        const total = (loadedSets[s.id]?.filter((c) => !c.reverseHolo && isOfficialNumberedCard(c, s)).length) ?? s.totalCards;
+        const total = (loadedSets[s.id]?.filter((c) => !c.reverseHolo).length) ?? s.totalCards;
         if (owned > 0 && owned >= total) return false;
       }
       if (q) {
@@ -367,7 +366,7 @@ export default function SetSelector({
                     : (set.id === BOOSTERDEX_SPECIAL_SET_ID ? boosterDexSpecialLoadedSetCount : boosterDexMainLoadedSetCount) > 0
                       ? `${set.id === BOOSTERDEX_SPECIAL_SET_ID ? boosterDexSpecialLoadedSetCount : boosterDexMainLoadedSetCount} available set${(set.id === BOOSTERDEX_SPECIAL_SET_ID ? boosterDexSpecialLoadedSetCount : boosterDexMainLoadedSetCount) === 1 ? '' : 's'}`
                       : 'No cached sets yet'
-                  : `${set.totalCards} cards`}
+                  : `${set.totalCards.toLocaleString()} cards`}
               </span>
               <span className="set-card__arrow">&#x203a;</span>
             </div>

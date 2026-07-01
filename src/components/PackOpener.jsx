@@ -182,7 +182,7 @@ export default function PackOpener({
 
   const currentCard    = packCards[currentIndex];
   const isSecretRare   = currentCard?.reverseHolo !== true && currentCard?.rarity === 'Secret Rare';
-  const isHolo         = currentCard?.reverseHolo !== true && currentCard?.holo === true && !isSecretRare;
+  const isHolo         = currentCard?.reverseHolo !== true && currentCard?.holo === true && !isSecretRare && currentCard?.setId !== 'dv1';
   const isNewCard      = currentCard != null && !preOpenCollectionRef.current.has(currentCard.id);
   const currentRarityLabel = currentCard?.gx === true && currentCard?.rarity === 'Rare ex'
     ? 'Rare GX'

@@ -8,6 +8,16 @@ import {
 
 const CHANGELOG = [
   {
+    version: '1.17.0',
+    date: '2026-06-29',
+    entries: [
+      'Number formatting — all card counts (set totals, collection stats, achievement progress) now display with commas for better readability',
+      'Hide complete sets filter — now correctly includes secret rare cards in the completion check, while still not requiring all variants',
+      'Legendary Collection reverse cards — now appear as the last card in packs (after the rare slot) with a unique golden holo effect in both normal and fullscreen views',
+      'Started fixing inaccuracies in special set packs (packs up to Generations have been updated)',
+    ],
+  },
+  {
     version: '1.16.0',
     date: '2026-06-18',
     entries: [

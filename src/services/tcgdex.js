@@ -357,7 +357,11 @@ export async function loadSetCards(setId) {
     // --- Holo flag ---
     // LV.X and Shiny cards are always holofoil; force holo even for the API-less
     // fallback path where vd is null.
-    const baseIsHolo = (rarity === 'Rare ex' || rarity === 'Rare BREAK' || rarity === 'Rare LV.X' || rarity === 'Rare Shiny' || rarity === 'Radiant Rare' || rarity === 'Secret Rare')
+    // Dragon's Vault (dv1) cards are all holo regardless of API data
+    const isDragonsVault = setId === 'dv1';
+    const baseIsHolo = isDragonsVault
+      ? true
+      : (rarity === 'Rare ex' || rarity === 'Rare BREAK' || rarity === 'Rare LV.X' || rarity === 'Rare Shiny' || rarity === 'Radiant Rare' || rarity === 'Secret Rare')
       ? true
       : vd !== null
         ? vd.holo === true

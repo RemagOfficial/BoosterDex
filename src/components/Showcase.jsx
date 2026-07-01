@@ -164,7 +164,7 @@ export default function Showcase({ collection }) {
         <section className="showcase-panel showcase-panel--pick">
           <h3 className="showcase-panel__heading">
             Favourites
-            <span className="showcase-panel__count">{favouritedCards.length}</span>
+            <span className="showcase-panel__count">{favouritedCards.length.toLocaleString()}</span>
           </h3>
           {favouritedCards.length === 0 ? (
             <div className="showcase-empty">
@@ -203,7 +203,7 @@ export default function Showcase({ collection }) {
           <div className="showcase-panel__heading-row">
             <h3 className="showcase-panel__heading">
               Showcase
-              <span className="showcase-panel__count">{slots.length}/{MAX_SLOTS}</span>
+              <span className="showcase-panel__count">{slots.length.toLocaleString()}/{MAX_SLOTS.toLocaleString()}</span>
             </h3>
             <button
               className={`showcase-export-btn${exporting ? ' showcase-export-btn--loading' : ''}`}

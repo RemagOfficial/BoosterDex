@@ -258,7 +258,7 @@ export default function Achievements({ collection, allCards, economyMode = false
                 </div>
                 <div className="ach-set-card__meta">
                   <span className={`ach-set-card__count${allDone ? ' ach-set-card__count--done' : ''}`}>
-                    {allDone ? '✓ ' : ''}{complete} / {total}
+                    {allDone ? '✓ ' : ''}{complete.toLocaleString()} / {total.toLocaleString()}
                   </span>
                   <div className="ach-set-card__bar">
                     <div
@@ -316,7 +316,7 @@ export default function Achievements({ collection, allCards, economyMode = false
                     />
                   </div>
                   <span className="ach-item__fraction">
-                    {ownedDisplay} / {prog.total}
+                    {ownedDisplay.toLocaleString()} / {prog.total.toLocaleString()}
                   </span>
                 </div>
               </div>

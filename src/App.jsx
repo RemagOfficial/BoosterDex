@@ -898,7 +898,7 @@ export default function App() {
             >
               Collection
               {collection.length > 0 && (
-                <span className="nav-btn__badge">{collection.length}</span>
+                <span className="nav-btn__badge">{collection.length.toLocaleString()}</span>
               )}
             </button>
             <button
@@ -953,7 +953,7 @@ export default function App() {
               {collection.length > 0 && (
                 <div className="nav-mobile-collection-badge">
                   <span className="nav-mobile-collection-badge__icon">📚</span>
-                  <span className="nav-mobile-collection-badge__count">{collection.length}</span>
+                  <span className="nav-mobile-collection-badge__count">{collection.length.toLocaleString()}</span>
                 </div>
               )}
             </div>
@@ -985,7 +985,7 @@ export default function App() {
                 >
                   Collection
                   {collection.length > 0 && (
-                    <span className="nav-dropdown-item__badge">{collection.length}</span>
+                    <span className="nav-dropdown-item__badge">{collection.length.toLocaleString()}</span>
                   )}
                 </button>
                 <button

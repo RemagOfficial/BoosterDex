@@ -123,6 +123,7 @@ export default function CardModal({ card, onClose, onFavouriteChange, onGradeCar
   const imageUrl = getCardImageUrl(card, 'high');
   const isHolo = card.holo === true;
   const isReverseHolo = card.reverseHolo === true;
+  const isLcReverse = card.setId === 'lc' && card.reverseHolo === true;
   const rarityLabel = card.gx === true && card.rarity === 'Rare ex'
     ? 'Rare GX'
     : card.vstar === true && card.rarity === 'Rare ex'
@@ -222,7 +223,7 @@ export default function CardModal({ card, onClose, onFavouriteChange, onGradeCar
 
         <div
           ref={imageWrapRef}
-          className={`card-modal-image-wrap${(isHolo || isReverseHolo) ? ' card-modal-image-wrap--holo' : ''}${showGradedFrame ? ' card-modal-image-wrap--graded' : ''}${gradingState === 'animating' ? ' card-modal-image-wrap--grading' : ''}`}
+          className={`card-modal-image-wrap${(isHolo || isReverseHolo) && !isLcReverse ? ' card-modal-image-wrap--holo' : ''}${isLcReverse ? ' card-modal-image-wrap--lc-reverse' : ''}${showGradedFrame ? ' card-modal-image-wrap--graded' : ''}${gradingState === 'animating' ? ' card-modal-image-wrap--grading' : ''}`}
           style={gradingState === 'animating' ? {
             '--grade-intensity': gradingIntensity,
             '--grading-duration': `${gradingDuration}ms`,
@@ -237,7 +238,8 @@ export default function CardModal({ card, onClose, onFavouriteChange, onGradeCar
                 className={isBackView ? 'card-modal-cardback' : 'card-modal-image'}
                 draggable="false"
               />
-              {(isHolo || isReverseHolo) && !isBackView && <div className="card-modal-holo" />}
+              {(isHolo || isReverseHolo) && !isBackView && !isLcReverse && <div className="card-modal-holo" />}
+              {isLcReverse && !isBackView && <div className="card-modal-lc-reverse" />}
             </div>
             <div className="card-modal-face card-modal-face--back">
               {showGradedFrame && <div className="card-modal-grade-tag-back" aria-hidden="true" />}
