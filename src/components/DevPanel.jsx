@@ -1,5 +1,6 @@
 import { useState, useMemo, useEffect } from 'react';
 import './DevPanel.css';
+import { openPack } from '../services/packLogic.js';
 
 const SAMPLE_TOASTS = [
   { id: '__dev-common__',    rarity: 'Common',    icon: '○', title: 'Common Ground',  setName: 'Dev Test', packs: 0 },
@@ -45,6 +46,9 @@ export default function DevPanel({
     }
     return '1';
   });
+  const [simResults, setSimResults] = useState(null);
+  const [simRunning, setSimRunning] = useState(false);
+  const [expandedRarity, setExpandedRarity] = useState(null);
 
   // Sort and filter cards for the picker
   const filteredCards = useMemo(() => {
@@ -142,6 +146,42 @@ export default function DevPanel({
     onSetDifficultyCostMultiplierOverride(value);
   };
 
+  const runSimulation = async () => {
+    if (!currentSetCards || currentSetCards.length === 0) return;
+    setSimRunning(true);
+    setSimResults(null);
+    setExpandedRarity(null);
+
+    const iterations = 10000;
+    const rarityCounts = {};
+    const cardCounts = {};
+    const cardsByRarity = {};
+
+    // Use setTimeout to allow UI to update before blocking
+    setTimeout(() => {
+      for (let i = 0; i < iterations; i++) {
+        const pack = openPack(currentSetCards, null, { ownedIds: null });
+        pack.forEach(card => {
+          const rarity = card.rarity || 'Unknown';
+          rarityCounts[rarity] = (rarityCounts[rarity] || 0) + 1;
+          cardCounts[card.id] = (cardCounts[card.id] || 0) + 1;
+          
+          // Group cards by rarity for breakdown
+          if (!cardsByRarity[rarity]) {
+            cardsByRarity[rarity] = {};
+          }
+          if (!cardsByRarity[rarity][card.id]) {
+            cardsByRarity[rarity][card.id] = { card, count: 0 };
+          }
+          cardsByRarity[rarity][card.id].count += 1;
+        });
+      }
+
+      setSimResults({ iterations, rarityCounts, cardCounts, cardsByRarity });
+      setSimRunning(false);
+    }, 100);
+  };
+
   const RARITY_COLORS = {
     'Common': '#94a3b8', 'Uncommon': '#10b981', 'Rare': '#f59e0b',
     'Rare ex': '#f97316', 'Ultra Rare': '#fb7185', 'Rare Holo': '#a855f7', 'Secret Rare': '#f43f5e',
@@ -156,7 +196,7 @@ export default function DevPanel({
       </div>
 
       <div className="dev-panel__tabs">
-        {[['toasts', '🔔', 'Toasts'], ['pack', '📦', 'Pack'], ['misc', '🔧', 'Misc']].map(([id, icon, label]) => (
+        {[['toasts', '🔔', 'Toasts'], ['pack', '📦', 'Pack'], ['sim', '📊', 'Sim'], ['misc', '🔧', 'Misc']].map(([id, icon, label]) => (
           <button
             key={id}
             className={`dev-tab${tab === id ? ' dev-tab--active' : ''}`}
@@ -266,6 +306,68 @@ export default function DevPanel({
                 >
                   Queue This Pack
                 </button>
+              </>
+            )}
+          </div>
+        )}
+
+        {/* ── Sim tab ── */}
+        {tab === 'sim' && (
+          <div className="dev-section">
+            <p className="dev-label">Pack Simulation</p>
+            <p className="dev-hint">Simulate 10,000 pack openings for the current set to analyze rarity distribution.</p>
+            {!currentSetCards && (
+              <p className="dev-hint">Load a set first to run simulation.</p>
+            )}
+            <button
+              className="dev-btn dev-btn--primary dev-btn--wide"
+              onClick={runSimulation}
+              disabled={simRunning || !currentSetCards}
+            >
+              {simRunning ? 'Running...' : 'Run 10,000 Simulations'}
+            </button>
+            {simResults && (
+              <>
+                <div className="dev-divider" />
+                <p className="dev-label">Results ({simResults.iterations.toLocaleString()} packs)</p>
+                <div className="dev-sim-results">
+                  {Object.entries(simResults.rarityCounts)
+                    .sort(([, a], [, b]) => b - a)
+                    .map(([rarity, count]) => {
+                      const percentage = ((count / (simResults.iterations * 10)) * 100).toFixed(2);
+                      const isExpanded = expandedRarity === rarity;
+                      return (
+                        <div key={rarity}>
+                          <div 
+                            className="dev-sim-row dev-sim-row--clickable"
+                            onClick={() => setExpandedRarity(isExpanded ? null : rarity)}
+                          >
+                            <span className="dev-sim-row__rarity" style={{ color: RARITY_COLORS[rarity] ?? '#64748b' }}>
+                              {isExpanded ? '▼ ' : '▶ '}{rarity}
+                            </span>
+                            <span className="dev-sim-row__count">{count.toLocaleString()}</span>
+                            <span className="dev-sim-row__percent">{percentage}%</span>
+                          </div>
+                          {isExpanded && simResults.cardsByRarity[rarity] && (
+                            <div className="dev-sim-breakdown">
+                              {Object.entries(simResults.cardsByRarity[rarity])
+                                .sort(([, a], [, b]) => b.count - a.count)
+                                .map(([cardId, { card, count: cardCount }]) => {
+                                  const cardPercent = ((cardCount / count) * 100).toFixed(1);
+                                  return (
+                                    <div key={cardId} className="dev-sim-card-row">
+                                      <span className="dev-sim-card-row__name">{card.name}</span>
+                                      <span className="dev-sim-card-row__count">{cardCount.toLocaleString()}</span>
+                                      <span className="dev-sim-card-row__percent">{cardPercent}%</span>
+                                    </div>
+                                  );
+                                })}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                </div>
               </>
             )}
           </div>

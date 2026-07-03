@@ -269,6 +269,97 @@
 }
 .dev-chip__remove:hover { opacity: 1; }
 
+/* ── Simulation results ─────────────────────────────────────────────────────── */
+.dev-sim-results {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  background: #0d1117;
+  border: 1px solid #21262d;
+  border-radius: 6px;
+  padding: 8px;
+  max-height: 300px;
+  overflow-y: auto;
+}
+
+.dev-sim-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 0;
+  border-bottom: 1px solid #161b22;
+}
+
+.dev-sim-row:last-child { border-bottom: none; }
+
+.dev-sim-row--clickable {
+  cursor: pointer;
+  transition: background 0.1s;
+}
+
+.dev-sim-row--clickable:hover {
+  background: rgba(245, 158, 11, 0.1);
+}
+
+.dev-sim-row__rarity {
+  flex: 1;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.dev-sim-row__count {
+  font-size: 11px;
+  color: #e6edf3;
+  font-weight: 600;
+  min-width: 60px;
+  text-align: right;
+}
+
+.dev-sim-row__percent {
+  font-size: 11px;
+  color: #8b949e;
+  min-width: 50px;
+  text-align: right;
+}
+
+.dev-sim-breakdown {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding-left: 16px;
+  margin-top: 4px;
+  border-left: 2px solid #21262d;
+}
+
+.dev-sim-card-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 2px 0;
+  font-size: 10px;
+}
+
+.dev-sim-card-row__name {
+  flex: 1;
+  color: #8b949e;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.dev-sim-card-row__count {
+  color: #e6edf3;
+  font-weight: 600;
+  min-width: 50px;
+  text-align: right;
+}
+
+.dev-sim-card-row__percent {
+  color: #8b949e;
+  min-width: 40px;
+  text-align: right;
+}
+
 /* ── Footer ───────────────────────────────────────────────────────────────── */
 .dev-panel__footer {
   padding: 8px 14px;

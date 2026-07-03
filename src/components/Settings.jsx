@@ -8,6 +8,13 @@ import {
 
 const CHANGELOG = [
   {
+    version: '1.17.1',
+    date: '2026-07-03',
+    entries: [
+      'Fixed: Legendary Collection achievements now match modern set conventions of separating unique card numbers and variants'
+    ],
+  },
+  {
     version: '1.17.0',
     date: '2026-06-29',
     entries: [
