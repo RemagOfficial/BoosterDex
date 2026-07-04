@@ -393,7 +393,7 @@ export const ACHIEVEMENT_SETS = [
       { id: 'lc-common',   title: 'Legendary Common',   description: 'Collect all Common cards',    icon: '○', rarity: 'Common',    fallbackTotal: 36,  filter: (c) => c.filter((x) => x.rarity === 'Common' && !x.reverseHolo) },
       { id: 'lc-uncommon', title: 'Legendary Uncommon', description: 'Collect all Uncommon cards',  icon: '◇', rarity: 'Uncommon',  fallbackTotal: 36,  filter: (c) => c.filter((x) => x.rarity === 'Uncommon' && !x.reverseHolo) },
       { id: 'lc-rare',     title: 'Legendary Rare',     description: 'Collect all Rare cards',      icon: '★', rarity: 'Rare',      fallbackTotal: 22,  filter: (c) => c.filter((x) => x.rarity === 'Rare' && !x.holo && !x.reverseHolo) },
-      { id: 'lc-holo',     title: 'Legendary Holo',     description: 'Collect all Rare Holo cards', icon: '✦', rarity: 'Rare Holo', fallbackTotal: 16,  filter: (c) => c.filter((x) => x.holo === true && !x.reverseHolo && !String(x.id).endsWith('_h')) },
+      { id: 'lc-holo',     title: 'Legendary Holo',     description: 'Collect all Rare Holo cards', icon: '✦', rarity: 'Rare Holo', fallbackTotal: 16,  filter: (c) => c.filter((x) => x.holo === true && !x.reverseHolo) },
       { id: 'lc-complete', title: 'Legendary Master',   description: 'Own at least one print of every card in Legendary Collection', icon: '◆', rarity: null, fallbackTotal: 113, anyVariant: true, filter: (c) => c.filter((x) => !x.reverseHolo) },
       { id: 'lc-full',     title: 'True Legendary Master', description: 'Own every card and every Reverse Holo in Legendary Collection', icon: '◈', rarity: 'all-variants', fallbackTotal: 223, filter: (c) => c },
     ],

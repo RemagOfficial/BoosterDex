@@ -339,9 +339,23 @@
   font-size: 10px;
 }
 
-.dev-sim-card-row__name {
+.dev-sim-card-row__meta {
   flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.dev-sim-card-row__name {
   color: #8b949e;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.dev-sim-card-row__details {
+  color: #6e7781;
+  font-size: 9px;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;

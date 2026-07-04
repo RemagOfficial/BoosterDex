@@ -8,6 +8,13 @@ import {
 
 const CHANGELOG = [
   {
+    version: '1.17.2',
+    date: '2026-07-04',
+    entries: [
+      'Fixed: Legendary Collection achievements now correctly count holo variants of the same card number',
+    ],
+  },
+  {
     version: '1.17.1',
     date: '2026-07-03',
     entries: [

@@ -11,6 +11,28 @@ const SAMPLE_TOASTS = [
 
 const RARITY_ORDER = ['Common', 'Uncommon', 'Rare', 'Rare ex', 'Ultra Rare', 'Rare Holo', 'Secret Rare', 'Reverse Holo'];
 
+function getCardVariantLabel(card) {
+  if (!card) return 'Unknown';
+
+  const details = [];
+  if (card.reverseHolo === true) details.push('Reverse Holo');
+  else if (card.holo === true) details.push('Holo');
+  else details.push('Normal');
+
+  if (card.megaEx) details.push('Mega EX');
+  if (card.gx) details.push('GX');
+  if (card.vmax) details.push('VMAX');
+  else if (card.vstar) details.push('VSTAR');
+  else if (card.v) details.push('V');
+  if (card.rarity === 'Rare BREAK') details.push('BREAK');
+  if (card.rarity === 'Radiant Rare') details.push('Radiant');
+  if (card.rarity === 'Secret Rare') details.push('Secret');
+  if (card.rarity === 'Ultra Rare') details.push('Ultra Rare');
+  if (card.localId) details.push(String(card.localId));
+
+  return details.join(' • ');
+}
+
 export default function DevPanel({
   onClose,
   coins = 0,
@@ -170,10 +192,22 @@ export default function DevPanel({
           if (!cardsByRarity[rarity]) {
             cardsByRarity[rarity] = {};
           }
-          if (!cardsByRarity[rarity][card.id]) {
-            cardsByRarity[rarity][card.id] = { card, count: 0 };
+          const cardKey = [
+            card.id,
+            card.name,
+            card.holo ? 'holo' : 'normal',
+            card.reverseHolo ? 'reverse' : 'base',
+            card.megaEx ? 'mega' : '',
+            card.gx ? 'gx' : '',
+            card.v ? 'v' : '',
+            card.vmax ? 'vmax' : '',
+            card.vstar ? 'vstar' : '',
+          ].join('::');
+
+          if (!cardsByRarity[rarity][cardKey]) {
+            cardsByRarity[rarity][cardKey] = { card, count: 0 };
           }
-          cardsByRarity[rarity][card.id].count += 1;
+          cardsByRarity[rarity][cardKey].count += 1;
         });
       }
 
@@ -352,11 +386,14 @@ export default function DevPanel({
                             <div className="dev-sim-breakdown">
                               {Object.entries(simResults.cardsByRarity[rarity])
                                 .sort(([, a], [, b]) => b.count - a.count)
-                                .map(([cardId, { card, count: cardCount }]) => {
+                                .map(([cardKey, { card, count: cardCount }]) => {
                                   const cardPercent = ((cardCount / count) * 100).toFixed(1);
                                   return (
-                                    <div key={cardId} className="dev-sim-card-row">
-                                      <span className="dev-sim-card-row__name">{card.name}</span>
+                                    <div key={cardKey} className="dev-sim-card-row">
+                                      <div className="dev-sim-card-row__meta">
+                                        <span className="dev-sim-card-row__name">{card.name}</span>
+                                        <span className="dev-sim-card-row__details">{getCardVariantLabel(card)}</span>
+                                      </div>
                                       <span className="dev-sim-card-row__count">{cardCount.toLocaleString()}</span>
                                       <span className="dev-sim-card-row__percent">{cardPercent}%</span>
                                     </div>
