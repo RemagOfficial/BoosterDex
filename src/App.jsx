@@ -538,7 +538,7 @@ export default function App() {
     const newToasts = [];
     let packsAwarded = 0;
 
-    for (const { ach, setName } of claims) {
+    for (const { ach, setName, setId } of claims) {
       let packs = 0;
       if (economyMode) {
         packs = getAchievementReward(ach);
@@ -548,8 +548,24 @@ export default function App() {
           awardFreePack(randomSetId);
         }
       }
-      if (showToasts && ach.rarity !== null) {
-        newToasts.push({ id: ach.id, title: ach.title, icon: ach.icon, rarity: ach.rarity, setName, packs });
+
+      if (showToasts && ach.toastStyle === 'set-complete-modal') {
+        const total = loadedSets[setId]?.length ?? ach.fallbackTotal ?? 0;
+        const setConfig = SETS.find((s) => s.id === setId);
+        setSetCompleteName(setConfig?.name ?? setName);
+        setSetCompleteTotal(total);
+        setSetComplete(true);
+      }
+
+      if (showToasts && ach.toastStyle !== 'set-complete-modal' && (ach.rarity !== null || ach.toastStyle === 'rare-holo')) {
+        newToasts.push({
+          id: ach.id,
+          title: ach.title,
+          icon: ach.icon,
+          rarity: ach.toastStyle === 'rare-holo' ? 'Rare Holo' : ach.rarity,
+          setName,
+          packs,
+        });
       }
     }
 
@@ -564,7 +580,7 @@ export default function App() {
     });
 
     return { claimedCount: claims.length, packsAwarded };
-  }, [awardFreePack, economyMode, setsWithCards]);
+  }, [awardFreePack, economyMode, loadedSets, setsWithCards]);
 
   const armAchievementTracking = useCallback(() => {
     if (achTrackingArmedRef.current || !allLoadedCards.length) return;
@@ -606,7 +622,7 @@ export default function App() {
         }
         const wasComplete = prevAchievementCompleteRef.current.has(ach.id);
         if (prog?.complete && !wasComplete && !claimedAchievements.has(ach.id)) {
-          newClaims.push({ ach, setName: achSet.name });
+          newClaims.push({ ach, setName: achSet.name, setId: achSet.tcgdexId });
         }
       }
     }
@@ -641,7 +657,7 @@ export default function App() {
 
       for (const ach of achSet.achievements) {
         if (claimedAchievements.has(ach.id)) continue;
-        missingClaimsById.set(ach.id, { ach, setName: achSet.name });
+        missingClaimsById.set(ach.id, { ach, setName: achSet.name, setId: achSet.tcgdexId });
       }
     }
 
@@ -651,7 +667,7 @@ export default function App() {
         if (!complete) continue;
         currentCompleteIds.add(ach.id);
         if (!claimedAchievements.has(ach.id)) {
-          missingClaimsById.set(ach.id, { ach, setName: achSet.name });
+          missingClaimsById.set(ach.id, { ach, setName: achSet.name, setId: achSet.tcgdexId });
         }
       }
     }
