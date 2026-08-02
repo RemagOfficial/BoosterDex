@@ -8,6 +8,13 @@ import {
 
 const CHANGELOG = [
   {
+    version: '1.17.3',
+    date: '2026-08-02',
+    entries: [
+      'Updated TCGDEX integration to work with new separated sub-sets for Sun & Moon, Sword & Shield, Scarlet & Violet, and Mega Evolution',
+    ],
+  },
+  {
     version: '1.17.2',
     date: '2026-07-04',
     entries: [

@@ -6,6 +6,8 @@ const sdk = new TCGdex('en');
 
 const CACHE_TTL = 30 * 24 * 60 * 60 * 1000; // 30 days - WotC sets never change
 const CACHE_VERSION = 'v29'; // bump when card shape changes to invalidate old caches
+const SUBSET_SUFFIXES = ['tg', 'cc', 'gg', 'sv'];
+const SUBSET_ELIGIBLE_PREFIXES = ['sm', 'swsh', 'sv', 'me'];
 
 function toCanonicalVariantLocalId(localId) {
   const text = String(localId ?? '');
@@ -236,17 +238,44 @@ async function fetchCardVariants(cardId) {
  *   2. Batch-fetches each card individually (max 20 concurrent) for
  *      variant + rarity info -- N requests, all cached per-card
  */
+function isSubsetSetId(setId) {
+  return SUBSET_SUFFIXES.some((suffix) => setId.toLowerCase().endsWith(suffix));
+}
+
+function getMasterSetIdFromSubset(setId) {
+  const lower = setId.toLowerCase();
+  for (const suffix of SUBSET_SUFFIXES) {
+    if (lower.endsWith(suffix)) {
+      return setId.slice(0, -suffix.length);
+    }
+  }
+  return setId;
+}
+
+function isSubsetEligibleSetId(setId) {
+  const lower = setId.toLowerCase();
+  return SUBSET_ELIGIBLE_PREFIXES.some((prefix) => lower.startsWith(prefix));
+}
+
+function getSubsetMergeIds(setId) {
+  if (!isSubsetEligibleSetId(setId)) return [];
+  return SUBSET_SUFFIXES
+    .map((suffix) => `${setId}${suffix}`)
+    .filter((candidate) => candidate.toLowerCase() !== setId.toLowerCase());
+}
+
 export async function loadSetCards(setId) {
-  const setConfig = getSetConfig(setId);
+  const canonicalSetId = getMasterSetIdFromSubset(setId);
+  const setConfig = getSetConfig(canonicalSetId);
   if (!setConfig) throw new Error(`Unknown set id: "${setId}"`);
 
-  const cacheKey = `set_${setId}_cards_${CACHE_VERSION}`;
+  const cacheKey = `set_${canonicalSetId}_cards_${CACHE_VERSION}`;
   const cached = cacheGet(cacheKey);
   if (cached) return cached;
 
   // Step 1: set summary
-  const set = await sdk.set.get(setId);
-  if (!set || !set.cards) throw new Error(`Failed to load set "${setId}" from tcgdex.`);
+  const set = await sdk.set.get(canonicalSetId);
+  if (!set || !set.cards) throw new Error(`Failed to load set "${canonicalSetId}" from tcgdex.`);
 
   const rawCards = set.cards.map((resume) => ({
     id:      resume.id,
@@ -254,7 +283,7 @@ export async function loadSetCards(setId) {
     name:    resume.name,
     rarity:  inferRarity(setConfig, resume.localId), // preliminary; overridden in Step 5
     image:   resume.image ?? null,
-    setId,
+    setId: canonicalSetId,
   }));
 
   // Derive CDN base path from the first card that has an image URL.
@@ -442,100 +471,109 @@ export async function loadSetCards(setId) {
   const allVariants = [...baseCards, ...holoVariantCards, ...reverseHoloCards];
   let allCards = allVariants;
 
-  // Merge additional TCGdex sets into this one (e.g. exu Unown into ex10)
-  if (setConfig.mergeSets?.length) {
-    for (const mergeSetId of setConfig.mergeSets) {
-      try {
-        const mergeSet = await sdk.set.get(mergeSetId);
-        if (!mergeSet?.cards) continue;
-
-        const mergeRaw = mergeSet.cards.map((resume) => ({
-          id:      resume.id,
-          localId: resume.localId,
-          name:    resume.name,
-          rarity:  'Common',       // placeholder; overridden below
-          image:   resume.image ?? null,
-          setId,                   // treat as belonging to the main set
-        }));
-
-        const dedupedMergeRaw = dedupeLetterSuffixCards(mergeRaw);
-
-        // Batch-fetch variants for merge cards
-        const mergeVariantMap = new Map();
-        for (let i = 0; i < dedupedMergeRaw.length; i += BATCH) {
-          const slice   = dedupedMergeRaw.slice(i, i + BATCH);
-          const results = await Promise.all(slice.map((c) => fetchCardVariants(c.id)));
-          slice.forEach((c, j) => mergeVariantMap.set(c.id, results[j]));
-        }
-
-        // Assign rarity, holo — same rules as main pipeline
-        const mergeCards = dedupedMergeRaw.map((card) => {
-          const vd = mergeVariantMap.get(card.id);
-          const megaEx = isMegaExName(card.name);
-          const gx = isGxName(card.name);
-          const vmax = isVmaxName(card.name);
-          const vstar = isVstarName(card.name);
-          const v = isVName(card.name);
-          let rarity;
-          if (vd?.apiRarity) {
-            rarity = normalizeRarity(vd.apiRarity) ?? 'Common';
-          } else {
-            rarity = 'Common';
-          }
-          if (rarity !== 'Secret Rare' && isPokemonExName(card.name)) rarity = 'Rare ex';
-          if (rarity !== 'Secret Rare' && gx) rarity = 'Rare ex';
-          if (rarity !== 'Secret Rare' && (v || vmax || vstar)) rarity = 'Rare ex';
-          if (isBreakName(card.name)) rarity = 'Rare BREAK';
-          const baseRarityBeforeSecretFallback = rarity;
-          const numericId = parseInt(card.localId, 10);
-          const officialTotal = Number(setConfig?.totalCards ?? 0);
-          if (!isNaN(numericId) && officialTotal > 0 && numericId > officialTotal) {
-            rarity = 'Secret Rare';
-          }
-          if (rarity === 'Secret Rare' && isEnergyCardName(card.name) && baseRarityBeforeSecretFallback === 'Common') {
-            rarity = 'Common';
-          }
-          if (setConfig?.rarityPrefixMap) {
-            for (const [prefix, mappedRarity] of Object.entries(setConfig.rarityPrefixMap)) {
-              if (String(card.localId).startsWith(prefix)) {
-                rarity = mappedRarity;
-                break;
-              }
-            }
-          }
-          if (isRadiantName(card.name)) rarity = 'Radiant Rare';
-          const baseIsHolo = (rarity === 'Rare ex' || rarity === 'Rare BREAK' || rarity === 'Radiant Rare' || rarity === 'Secret Rare') ? true : (vd !== null ? vd.holo === true : false);
-          const splitDualHoloVariant = vd?.normal === true
-            && vd?.holo === true
-            && !shouldSkipHoloVariant({ ...card, rarity, megaEx, gx, v, vmax, vstar });
-          const isHolo = splitDualHoloVariant ? false : baseIsHolo;
-          return { ...card, rarity, holo: isHolo, types: vd?.types ?? null, megaEx, gx, v, vmax, vstar, splitDualHoloVariant };
-        });
-
-        const dedupedMergeCards = dedupeExVariants(mergeCards);
-
-        const mergeHoloVariants = dedupedMergeCards
-          .filter((card) => card.splitDualHoloVariant === true)
-          .map((card) => ({ ...card, id: card.id + '_h', holo: true, splitDualHoloVariant: false }));
-
-        // Reverse holos for merge cards
-        const mergeRH = dedupedMergeCards
-          .filter((card) => {
-            const vd = mergeVariantMap.get(card.id);
-            return vd?.reverse === true && !shouldSkipReverseVariant(card);
-          })
-          .map((card) => ({ ...card, id: card.id + '_rh', reverseHolo: true, holo: false, splitDualHoloVariant: false }));
-
-        const mergeBaseCards = dedupedMergeCards.map((card) => {
-          const { splitDualHoloVariant: _drop, ...rest } = card;
-          return rest;
-        });
-
-        allCards.push(...mergeBaseCards, ...mergeHoloVariants, ...mergeRH);
-      } catch (e) {
-        console.warn(`Failed to merge set ${mergeSetId} into ${setId}:`, e);
-      }
+  async function loadMergeSetCards(mergeSetId, warnOnFail = false) {
+    let mergeSet;
+    try {
+      mergeSet = await sdk.set.get(mergeSetId);
+    } catch (err) {
+      if (warnOnFail) console.warn(`Failed to load merge set ${mergeSetId}:`, err);
+      return [];
     }
+    if (!mergeSet?.cards) {
+      if (warnOnFail) console.warn(`Merge set ${mergeSetId} returned no cards.`);
+      return [];
+    }
+
+    const mergeRaw = mergeSet.cards.map((resume) => ({
+      id:      resume.id,
+      localId: resume.localId,
+      name:    resume.name,
+      rarity:  'Common',       // placeholder; overridden below
+      image:   resume.image ?? null,
+      setId: canonicalSetId,
+    }));
+
+    const dedupedMergeRaw = dedupeLetterSuffixCards(mergeRaw);
+    const mergeVariantMap = new Map();
+    for (let i = 0; i < dedupedMergeRaw.length; i += BATCH) {
+      const slice   = dedupedMergeRaw.slice(i, i + BATCH);
+      const results = await Promise.all(slice.map((c) => fetchCardVariants(c.id)));
+      slice.forEach((c, j) => mergeVariantMap.set(c.id, results[j]));
+    }
+
+    const mergeCards = dedupedMergeRaw.map((card) => {
+      const vd = mergeVariantMap.get(card.id);
+      const megaEx = isMegaExName(card.name);
+      const gx = isGxName(card.name);
+      const vmax = isVmaxName(card.name);
+      const vstar = isVstarName(card.name);
+      const v = isVName(card.name);
+      let rarity;
+      if (vd?.apiRarity) {
+        rarity = normalizeRarity(vd.apiRarity) ?? 'Common';
+      } else {
+        rarity = 'Common';
+      }
+      if (rarity !== 'Secret Rare' && isPokemonExName(card.name)) rarity = 'Rare ex';
+      if (rarity !== 'Secret Rare' && gx) rarity = 'Rare ex';
+      if (rarity !== 'Secret Rare' && (v || vmax || vstar)) rarity = 'Rare ex';
+      if (isBreakName(card.name)) rarity = 'Rare BREAK';
+      const baseRarityBeforeSecretFallback = rarity;
+      const numericId = parseInt(card.localId, 10);
+      const officialTotal = Number(setConfig?.totalCards ?? 0);
+      if (!isNaN(numericId) && officialTotal > 0 && numericId > officialTotal) {
+        rarity = 'Secret Rare';
+      }
+      if (rarity === 'Secret Rare' && isEnergyCardName(card.name) && baseRarityBeforeSecretFallback === 'Common') {
+        rarity = 'Common';
+      }
+      if (setConfig?.rarityPrefixMap) {
+        for (const [prefix, mappedRarity] of Object.entries(setConfig.rarityPrefixMap)) {
+          if (String(card.localId).startsWith(prefix)) {
+            rarity = mappedRarity;
+            break;
+          }
+        }
+      }
+      if (isRadiantName(card.name)) rarity = 'Radiant Rare';
+      const baseIsHolo = (rarity === 'Rare ex' || rarity === 'Rare BREAK' || rarity === 'Radiant Rare' || rarity === 'Secret Rare') ? true : (vd !== null ? vd.holo === true : false);
+      const splitDualHoloVariant = vd?.normal === true
+        && vd?.holo === true
+        && !shouldSkipHoloVariant({ ...card, rarity, megaEx, gx, v, vmax, vstar });
+      const isHolo = splitDualHoloVariant ? false : baseIsHolo;
+      return { ...card, rarity, holo: isHolo, types: vd?.types ?? null, megaEx, gx, v, vmax, vstar, splitDualHoloVariant };
+    });
+
+    const dedupedMergeCards = dedupeExVariants(mergeCards);
+    const mergeHoloVariants = dedupedMergeCards
+      .filter((card) => card.splitDualHoloVariant === true)
+      .map((card) => ({ ...card, id: card.id + '_h', holo: true, splitDualHoloVariant: false }));
+
+    const mergeRH = dedupedMergeCards
+      .filter((card) => {
+        const vd = mergeVariantMap.get(card.id);
+        return vd?.reverse === true && !shouldSkipReverseVariant(card);
+      })
+      .map((card) => ({ ...card, id: card.id + '_rh', reverseHolo: true, holo: false, splitDualHoloVariant: false }));
+
+    const mergeBaseCards = dedupedMergeCards.map((card) => {
+      const { splitDualHoloVariant: _drop, ...rest } = card;
+      return rest;
+    });
+
+    return [...mergeBaseCards, ...mergeHoloVariants, ...mergeRH];
+  }
+
+  const subsetMergeIds = getSubsetMergeIds(canonicalSetId);
+  const mergeIds = [
+    ...(setConfig.mergeSets ?? []),
+    ...subsetMergeIds,
+  ];
+
+  for (const mergeSetId of mergeIds) {
+    const warnOnFail = setConfig.mergeSets?.includes(mergeSetId);
+    const mergedCards = await loadMergeSetCards(mergeSetId, warnOnFail);
+    allCards.push(...mergedCards);
   }
 
   cacheSet(cacheKey, allCards, CACHE_TTL);
