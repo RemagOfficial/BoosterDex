@@ -8,6 +8,13 @@ import {
 
 const CHANGELOG = [
   {
+    version: '1.17.5',
+    date: '2026-08-04',
+    entries: [
+      'Fixed: e-card series achievements now correctly count holo variants of the same card number',
+    ],
+  },
+  {
     version: '1.17.4',
     date: '2026-08-04',
     entries: [
