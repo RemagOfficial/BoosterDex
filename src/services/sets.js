@@ -2189,6 +2189,30 @@ export const SETS = [
     },
     rarityTotals: { 'Common': 38, 'Uncommon': 26, 'Rare': 12, 'Rare ex': 10, 'Ultra Rare': 0, 'Secret Rare': 36 },
   },
+  {
+    id: 'me05',
+    name: 'Pitch Black',
+    series: 'Mega Evolution',
+    year: '2026',
+    totalCards: 84,
+    secretStart: 85,
+    symbol: 'ME',
+    accentColor: '#111827',
+    rarityRanges: {
+      'Common': [[1, 3], [5, 5], [9, 11], [13, 13], [15, 15], [18, 19], [21, 21], [23, 23], [25, 25], [29, 33], [36, 36], [42, 44], [46, 46], [49, 51], [53, 53], [57, 58], [60, 61], [63, 63], [66, 67], [69, 69], [71, 73]],
+      'Uncommon': [[6, 7], [14, 14], [17, 17], [22, 22], [24, 24], [26, 26], [30, 30], [34, 34], [37, 41], [52, 52], [54, 54], [64, 64], [68, 68], [74, 82]],
+      'Rare': [[12, 12], [20, 20], [28, 28], [35, 35], [47, 47], [56, 56], [59, 59], [62, 62], [70, 70], [83, 84]],
+      'Double rare': [[4, 4], [8, 8], [16, 16], [27, 27], [31, 31], [38, 38], [45, 45], [48, 48], [55, 55], [65, 65]],
+      'Secret Rare': [85, 120],
+    },
+    rarityTotals: {
+      'Common': 37,
+      'Uncommon': 26,
+      'Rare': 11,
+      'Double rare': 10,
+      'Secret Rare': 36,
+    },
+  },
 ];
 
 /** Look up a set definition by its id (e.g. 'base1'). */

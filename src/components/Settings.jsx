@@ -8,6 +8,13 @@ import {
 
 const CHANGELOG = [
   {
+    version: '1.17.4',
+    date: '2026-08-04',
+    entries: [
+      'Added Mega Evolution Pitch Black (ME05)',
+    ],
+  },
+  {
     version: '1.17.3',
     date: '2026-08-02',
     entries: [

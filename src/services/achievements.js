@@ -2158,6 +2158,24 @@ export const ACHIEVEMENT_SETS = [
       { id: 'me04-full',     title: 'True Chaos Rising Master',  description: 'Own every card and every Reverse Holo in Chaos Rising',             icon: '◈', rarity: 'all-variants', fallbackTotal: 122, filter: (c) => c },
     ],
   },
+  {
+    id: 'me05',
+    tcgdexId: 'me05',
+    name: 'Pitch Black',
+    year: '2026',
+    achievements: [
+      { id: 'me05-common',      title: 'Pitch Black Basics',            description: 'Collect all Common cards',                                 icon: '○', rarity: 'Common',      fallbackTotal: 37, filter: (c) => c.filter((x) => x.rarity === 'Common') },
+      { id: 'me05-uncommon',    title: 'Pitch Black Support',           description: 'Collect all Uncommon cards',                               icon: '◇', rarity: 'Uncommon',    fallbackTotal: 26, filter: (c) => c.filter((x) => x.rarity === 'Uncommon') },
+      { id: 'me05-rare',        title: 'Pitch Black Rares',             description: 'Collect all Rare cards',                                   icon: '★', rarity: 'Rare',        fallbackTotal: 11, filter: (c) => c.filter((x) => x.rarity === 'Rare' && !x.holo) },
+      { id: 'me05-double',      title: 'Pitch Black Double Rares',      description: 'Collect all Double rare cards',                            icon: '✦', rarity: 'Double rare', fallbackTotal: 10, filter: (c) => c.filter((x) => x.rarity === 'Double rare' && !x.reverseHolo) },
+      { id: 'me05-illustration', title: 'Pitch Black Illustration Rares', description: 'Collect all Illustration rare cards',                      icon: '✧', rarity: 'Illustration rare', fallbackTotal: 11, filter: (c) => c.filter((x) => x.rarity === 'Illustration rare' && !x.reverseHolo) },
+      { id: 'me05-ultra',       title: 'Pitch Black Ultra Rares',       description: 'Collect all Ultra Rare cards',                             icon: '✵', rarity: 'Ultra Rare',  fallbackTotal: 18, filter: (c) => c.filter((x) => x.rarity === 'Ultra Rare' && !x.reverseHolo) },
+      { id: 'me05-special',     title: 'Pitch Black Special Rares',     description: 'Collect all Special illustration rare cards',              icon: '✪', rarity: 'Special illustration rare', fallbackTotal: 6, filter: (c) => c.filter((x) => x.rarity === 'Special illustration rare' && !x.reverseHolo) },
+      { id: 'me05-secret',      title: 'Pitch Black Secret',            description: 'Collect all Secret Rare cards',                            icon: '✧', rarity: 'Secret Rare', fallbackTotal: 36, anyVariant: true, filter: (c) => c.filter((x) => x.rarity === 'Secret Rare' && !x.reverseHolo) },
+      { id: 'me05-complete',    title: 'Pitch Black Master',            description: 'Own at least one print of every card in Pitch Black',     icon: '◆', rarity: null,          fallbackTotal: 120, anyVariant: true, filter: (c) => c.filter((x) => !x.reverseHolo) },
+      { id: 'me05-full',        title: 'True Pitch Black Master',       description: 'Own every card and every Reverse Holo in Pitch Black',    icon: '◈', rarity: 'all-variants', fallbackTotal: 187, filter: (c) => c },
+    ],
+  },
 ];
 
 /**
