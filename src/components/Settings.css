@@ -194,7 +194,8 @@
   background: rgba(248, 113, 113, 0.2);
 }
 
-.btn-reset--recheck {
+.btn-reset--recheck,
+.btn-reset--cache {
   flex-shrink: 0;
   padding: 6px 14px;
   border-radius: 6px;
@@ -207,11 +208,13 @@
   transition: background 0.15s;
 }
 
-.btn-reset--recheck:hover:not(:disabled) {
+.btn-reset--recheck:hover:not(:disabled),
+.btn-reset--cache:hover:not(:disabled) {
   background: rgba(56, 189, 248, 0.22);
 }
 
-.btn-reset--recheck:disabled {
+.btn-reset--recheck:disabled,
+.btn-reset--cache:disabled {
   opacity: 0.55;
   cursor: not-allowed;
 }

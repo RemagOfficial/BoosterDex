@@ -8,6 +8,13 @@ import {
 
 const CHANGELOG = [
   {
+    version: '1.17.6',
+    date: '2026-08-06',
+    entries: [
+      'Added Clear Caches button to Settings to clear cached set data if packs or cards are behaving incorrectly after a bad save or stale local data',
+    ],
+  },
+  {
     version: '1.17.5',
     date: '2026-08-04',
     entries: [
@@ -291,6 +298,7 @@ export default function Settings({
   onModeChange,
   onResetProgress,
   onRecheckAchievements,
+  onClearCaches,
   onExportSave,
   onImportSave,
   coins = 0,
@@ -304,6 +312,8 @@ export default function Settings({
   const [confirmReset, setConfirmReset] = useState(false);
   const [recheckBusy, setRecheckBusy] = useState(false);
   const [recheckStatus, setRecheckStatus] = useState('');
+  const [cacheBusy, setCacheBusy] = useState(false);
+  const [cacheStatus, setCacheStatus] = useState('');
   const [saveBusy, setSaveBusy] = useState(false);
   const [saveStatus, setSaveStatus] = useState('');
   const [passphraseOpen, setPassphraseOpen] = useState(false);
@@ -348,6 +358,20 @@ export default function Settings({
       setRecheckStatus('Recheck failed. Please try again.');
     } finally {
       setRecheckBusy(false);
+    }
+  };
+
+  const handleClearCaches = () => {
+    if (!onClearCaches || cacheBusy) return;
+    setCacheBusy(true);
+    setCacheStatus('');
+    try {
+      onClearCaches();
+      setCacheStatus('Card caches cleared. Set data refreshed.');
+    } catch {
+      setCacheStatus('Could not clear caches. Please try again.');
+    } finally {
+      setCacheBusy(false);
     }
   };
 
@@ -568,6 +592,20 @@ export default function Settings({
                 disabled={recheckBusy}
               >
                 {recheckBusy ? 'Checking...' : 'Recheck'}
+              </button>
+            </div>
+            <div className="settings-toggle-row settings-toggle-row--stack">
+              <div>
+                <span className="settings-toggle-label">Clear Card Caches</span>
+                <p className="settings-toggle-desc">Clear cached set data if packs or cards are behaving incorrectly after a bad save or stale local data.</p>
+                {cacheStatus && <p className="settings-recheck-status">{cacheStatus}</p>}
+              </div>
+              <button
+                className="btn-reset btn-reset--cache"
+                onClick={handleClearCaches}
+                disabled={cacheBusy}
+              >
+                {cacheBusy ? 'Clearing...' : 'Clear Cache'}
               </button>
             </div>
             {confirmReset ? (

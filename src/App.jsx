@@ -1201,6 +1201,7 @@ export default function App() {
         onModeChange={handleModeChange}
         onResetProgress={resetProgress}
         onRecheckAchievements={recheckAchievements}
+        onClearCaches={devClearCaches}
         onExportSave={exportSave}
         onImportSave={importSave}
         coins={coins}
